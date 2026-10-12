@@ -3,6 +3,7 @@ import {distance,indexOf,type Actor,type LogEntry,type WorldState} from './types
 import {ageSocialMemories,classifyUtterance,recordSocialEvent,recordObservedSocialEvent,shareSocialRumor,relationshipTo,shouldAttack} from './social.ts';
 import {decideNpcBehavior,intentForSocialEvent,recentThreatCount} from './ai-matrix.ts';
 import {questOfferFor} from './character.ts';
+import {classifyWorkIntent} from './quest-intent.ts';
 const WALKABLE=new Set(['floor','road','scrap','grass','door']);
 const DIRECTIONS=[[1,0],[-1,0],[0,1],[0,-1]] as const;
 export function tileAt(s:WorldState,x:number,y:number){return x<0||y<0||x>=s.width||y>=s.height?undefined:s.tiles[indexOf(x,y,s.width)];}
@@ -158,7 +159,7 @@ export function talk(s:WorldState,text?:string,options:{suppressDialogue?:boolea
   addLog(s,a.name+' no te ha ofrecido ningún encargo que puedas aceptar.','warning');return;
  }
  if(/\b(rechazo|no acepto|no me interesa|dejalo)\b/.test(clean)&&offered){offered.status='declined';addLog(s,'Rechazaste el encargo de '+a.name+'. Su objetivo personal continúa.','event');tickWorld(s);return;}
- const asksForWork=/\b(ayuda|ayudar|ayudame|ayudo|ayudarte|ayudarte con eso|puedo ayudarte|queres que te ayude|quieres que te ayude|te doy una mano|trabajo|encargo|mision|misiones|que necesitas|que necesitas de mi|en que puedo ayudar|tenes algun problema|tienes algun problema)\b/.test(clean);
+ const workIntent=classifyWorkIntent(text??'');const asksForWork=workIntent==='ask_for_work'||workIntent==='offer_help';
  if(event){
   const publicInsult=/(delante de todos|en público|frente a todos|con todos mirando)/i.test(text??'');
   recordSocialEvent(a,{...event,targetId:'player',tick:s.tick,public:publicInsult,interpretation:event.kind==='apology'?'intento de disculpa; la sinceridad todavía no está demostrada':event.kind==='threat'?'amenaza directa':event.kind==='insult'?'ofensa directa':'interacción hostil',sincerity:event.kind==='apology'?35:undefined,repairEffort:0});

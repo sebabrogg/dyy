@@ -11,16 +11,16 @@ export function generateWorld(seed=WORLD_SEED):WorldState{
  for(let by=2;by<height-2;by+=8)for(let bx=2;bx<width-2;bx+=9){const bw=structureRng.int(3,5),bh=structureRng.int(2,4);for(let y=by;y<Math.min(by+bh,height-1);y++)for(let x=bx;x<Math.min(bx+bw,width-1);x++)if(tiles[indexOf(x,y,width)]!.terrain!=='road')tiles[indexOf(x,y,width)]!.terrain='building';const dx=Math.min(bx+bw-1,width-2),dy=Math.min(by+bh,height-2);if(tiles[indexOf(dx,dy,width)]!.terrain==='building')tiles[indexOf(dx,dy,width)]!.terrain='door';}
  for(let y=9;y<=15;y++)for(let x=13;x<=19;x++)tiles[indexOf(x,y,width)]!.terrain='floor';for(let x=0;x<=16;x++)tiles[indexOf(x,12,width)]!.terrain='road';
  const roles=[
- ['Mara Venn','M','UAC','wary','guardia de distrito','controlar el acceso','#df795d',19,11],
- ['Ivo Salcedo','i','Gruta','helpful','mecánico','conseguir piezas para el generador','#8bb8a0',13,13],
- ['Nadia Kroll','N','EME','neutral','sanitaria','encontrar antibióticos','#b5a0d4',22,15],
+ ['Mara Venn','♜','UAC','wary','guardia de distrito','controlar el acceso','#df795d',19,11],
+ ['Ivo Salcedo','⚒','Gruta','helpful','mecánico','conseguir piezas para el generador','#8bb8a0',13,13],
+ ['Nadia Kroll','◆','EME','neutral','sanitaria','encontrar antibióticos','#b5a0d4',22,15],
  ['Tomás Riel','t','Sin afiliación','neutral','recolector','vender chatarra antes del toque de queda','#d5b77a',10,8],
  ['Ema Soria','e','Gruta','wary','mensajera','entregar un paquete sin llamar la atención','#8bb8a0',20,17],
  ['Bruno Kehl','B','UAC','hostile','contratista','expulsar a quien no tenga permiso','#df795d',24,10],
  ['Luz Arce','L','EME','helpful','archivista','reconstruir un registro de desaparecidos','#b5a0d4',11,15]
  ] as const;
  for(const r of roles){const x=r[7],y=r[8];tiles[indexOf(x,y,width)]!.terrain='floor';}
- const actors:Actor[]=roles.map((r,i)=>{const trust=actorRng.int(25,65);return ({id:'npc-'+String(i+1).padStart(2,'0'),name:r[0],glyph:r[1],faction:r[2],disposition:r[3],personality:r[4],goal:r[5],color:r[6],x:r[7],y:r[8],trust,alert:0,alive:true,lastSeenPlayerTick:-1,mind:generateNpcMind(seed,'npc-'+String(i+1).padStart(2,'0'),r[4],r[2]),lifeMission:generateLifeMission(seed,{id:'npc-'+String(i+1).padStart(2,'0'),name:r[0],goal:r[5],personality:r[4],faction:r[2]}),social:{
+ const actors:Actor[]=roles.map((r,i)=>{const trust=actorRng.int(25,65);return ({id:'npc-'+String(i+1).padStart(2,'0'),name:r[0],glyph:r[2]==='UAC'?'♜':r[2]==='EME'?'◆':r[2]==='Gruta'?'⚒':'✦',faction:r[2],disposition:r[3],personality:r[4],goal:r[5],color:r[6],x:r[7],y:r[8],trust,alert:0,alive:true,lastSeenPlayerTick:-1,mind:generateNpcMind(seed,'npc-'+String(i+1).padStart(2,'0'),r[4],r[2]),lifeMission:generateLifeMission(seed,{id:'npc-'+String(i+1).padStart(2,'0'),name:r[0],goal:r[5],personality:r[4],faction:r[2]}),social:{
   traits:{susceptibility:socialRng.int(15,85),reactivity:socialRng.int(15,85),grudge:socialRng.int(10,90),pride:socialRng.int(10,90),selfControl:socialRng.int(10,90),vengefulness:socialRng.int(5,80),reconciliation:socialRng.int(10,85)},
   memories:[],knowledge:[],contacts:{},reputation:{},
   relationships:{player:{affection:0,trust,respect:25,resentment:0,fear:0,debt:0,hostility:r[3]==='hostile'?45:r[3]==='wary'?15:0}},lastAgedTick:0

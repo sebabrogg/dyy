@@ -18,7 +18,8 @@ function resolveQuestConsequences(s:WorldState):void{
   if(quest.status!=='accepted')continue;
   const giver=s.actors.find(a=>a.id===quest.giverId);
   const deadOrMissing=!giver||!giver.alive;
-  const expired=s.tick>quest.deadlineTick;
+  const worldMinute=Math.floor((s.elapsedWorldMs??0)/60000);
+  const expired=quest.deadlineWorldMinute!==undefined?worldMinute>quest.deadlineWorldMinute:s.tick>quest.deadlineTick;
   if(!deadOrMissing&&!expired)continue;
   quest.status='failed';
   const reason=deadOrMissing?(giver?'quien te lo confió ha muerto.':'quien te lo confió ya no está disponible.'):'dejaste vencer el plazo.';
@@ -76,8 +77,8 @@ export function moveTo(s:WorldState,x:number,y:number):void{
  s.selectedTile={x,y};s.selectedActorId=null;addLog(s,'Te desplazas hasta el punto indicado.','action');
 }
 export function walkStep(s:WorldState,x:number,y:number):boolean{if(Math.abs(x-s.player.x)+Math.abs(y-s.player.y)!==1||!walkable(s,x,y))return false;s.player.x=x;s.player.y=y;s.selectedTile={x,y};s.selectedActorId=null;refreshVisibility(s);return true;}
-export function advanceWorld(s:WorldState):void{tickWorld(s);s.elapsedWorldMs=(s.elapsedWorldMs??0)+60000;const debt=(s.player.sleepDebtMinutes??0)+1;s.player.sleepDebtMinutes=debt;const previousHunger=s.player.hunger;s.player.hunger=Math.min(100,s.player.hunger+.25);if(previousHunger<70&&s.player.hunger>=70)addLog(s,'El hambre empieza a distraerte.','feeling');if(previousHunger<90&&s.player.hunger>=90)addLog(s,'El hambre te debilita; cuesta ignorarla.','feeling');if(debt>720&&debt%30===0)s.player.sanity=Math.max(0,s.player.sanity-1);}
-export function sleep(s:WorldState,hours=8):void{const near=[tileAt(s,s.player.x,s.player.y),tileAt(s,s.player.x+1,s.player.y),tileAt(s,s.player.x-1,s.player.y),tileAt(s,s.player.x,s.player.y+1),tileAt(s,s.player.x,s.player.y-1)];if(!near.some(t=>t?.terrain==="door"||t?.terrain==="building")){addLog(s,"No hay una zona de descanso protegida al alcance.","warning");return;}const duration=Math.max(1,Math.min(12,Math.floor(hours)))*60;s.player.sleepDebtMinutes=0;s.player.sanity=Math.min(100,s.player.sanity+Math.round(duration/60*1.5));for(let minute=0;minute<duration;minute++){tickWorld(s);s.elapsedWorldMs=(s.elapsedWorldMs??0)+60000;if(s.player.health<=0)break;}s.player.hunger=Math.min(100,s.player.hunger+Math.ceil(duration/60*1.5));s.lastClockUpdate=Date.now();addLog(s,"Tu personaje descansó "+Math.floor(duration/60)+" "+(duration===60?"hora":"horas")+". El mundo siguió activo mientras dormía.","feeling");}
+export function advanceWorld(s:WorldState):void{s.elapsedWorldMs=(s.elapsedWorldMs??0)+60000;tickWorld(s);const debt=(s.player.sleepDebtMinutes??0)+1;s.player.sleepDebtMinutes=debt;const previousHunger=s.player.hunger;s.player.hunger=Math.min(100,s.player.hunger+.25);if(previousHunger<70&&s.player.hunger>=70)addLog(s,'El hambre empieza a distraerte.','feeling');if(previousHunger<90&&s.player.hunger>=90)addLog(s,'El hambre te debilita; cuesta ignorarla.','feeling');if(debt>720&&debt%30===0)s.player.sanity=Math.max(0,s.player.sanity-1);}
+export function sleep(s:WorldState,hours=8):void{const near=[tileAt(s,s.player.x,s.player.y),tileAt(s,s.player.x+1,s.player.y),tileAt(s,s.player.x-1,s.player.y),tileAt(s,s.player.x,s.player.y+1),tileAt(s,s.player.x,s.player.y-1)];if(!near.some(t=>t?.terrain==="door"||t?.terrain==="building")){addLog(s,"No hay una zona de descanso protegida al alcance.","warning");return;}const duration=Math.max(1,Math.min(12,Math.floor(hours)))*60;s.player.sleepDebtMinutes=0;s.player.sanity=Math.min(100,s.player.sanity+Math.round(duration/60*1.5));for(let minute=0;minute<duration;minute++){s.elapsedWorldMs=(s.elapsedWorldMs??0)+60000;tickWorld(s);if(s.player.health<=0)break;}s.player.hunger=Math.min(100,s.player.hunger+Math.ceil(duration/60*1.5));s.lastClockUpdate=Date.now();addLog(s,"Tu personaje descansó "+Math.floor(duration/60)+" "+(duration===60?"hora":"horas")+". El mundo siguió activo mientras dormía.","feeling");}
 export function waitTurn(s:WorldState):void{tickWorld(s);addLog(s,'Dejas pasar cinco minutos. El barrio sigue funcionando sin pedirte permiso.','action');}
 export function inspect(s:WorldState):void{
  const a=s.selectedActorId?s.actors.find(v=>v.id===s.selectedActorId):undefined;
@@ -150,7 +151,7 @@ export function talk(s:WorldState,text?:string,options:{suppressDialogue?:boolea
  if(text?.trim()&&!event)recordSocialEvent(a,{kind:'conversation',targetId:'player',tick:s.tick,severity:8,description:'El jugador me dijo: «'+text.trim().slice(0,240)+'»',interpretation:'interacción recordada'});
  const offered=s.quests.find(q=>q.giverId===a.id&&q.status==='offered');
  if(/\b(acepto|aceptar|acepto el encargo|me encargo|lo hare|lo hago)\b/.test(clean)){
-  if(offered){offered.status='accepted';offered.acceptedAtTick=s.tick;offered.deadlineTick=s.tick+120+offered.requirements.length*24;addLog(s,'Aceptaste el encargo de '+a.name+': '+offered.title+'. Objetivo actual: '+offered.objective+'.','event');tickWorld(s);return;}
+  if(offered){const worldMinute=Math.floor((s.elapsedWorldMs??0)/60000);offered.status='accepted';offered.acceptedAtTick=s.tick;offered.acceptedAtWorldMinute=worldMinute;offered.offeredAtWorldMinute=offered.offeredAtWorldMinute??worldMinute;offered.deadlineWorldMinute=worldMinute+2880+offered.requirements.length*360;offered.deadlineTick=Number.MAX_SAFE_INTEGER;addLog(s,'Aceptaste el encargo de '+a.name+': '+offered.title+'. Plazo: '+Math.floor((offered.deadlineWorldMinute-worldMinute)/1440)+' días de tiempo del mundo. Objetivo actual: '+offered.objective+'.','event');tickWorld(s);return;}
   addLog(s,a.name+' no te ha ofrecido ningún encargo que puedas aceptar.','warning');return;
  }
  if(/\b(rechazo|no acepto|no me interesa|dejalo)\b/.test(clean)&&offered){offered.status='declined';addLog(s,'Rechazaste el encargo de '+a.name+'. Su objetivo personal continúa.','event');tickWorld(s);return;}

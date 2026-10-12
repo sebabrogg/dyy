@@ -75,3 +75,14 @@ test('un encargo con evidencia se cierra al informar con lenguaje natural',()=>{
  assert.equal(s.quests.find(q=>q.id==='quest-report')!.status,'completed');
  assert.ok(s.log.some(entry=>entry.text.includes('Encargo completado')&&entry.text.includes('Limpiar el acceso')));
 });
+
+
+test('el plazo de un encargo aceptado depende del reloj del mundo, no de los turnos',()=>{
+ const s=generateWorld(904),giver=s.actors[0]!;
+ s.quests.push({id:'quest-clock',giverId:giver.id,missionId:giver.lifeMission.id,title:'Llegar a tiempo',description:'Descripción',objective:'Objetivo',requirements:[],reward:'Nada',status:'accepted',offeredAtTick:s.tick,acceptedAtTick:s.tick,deadlineTick:s.tick+1,deadlineWorldMinute:20,acceptedAtWorldMinute:0,objectiveType:'investigate_and_report',progress:0,evidence:null,requiredItemId:null});
+ for(let i=0;i<10;i++)waitTurn(s);
+ assert.equal(s.quests[0]!.status,'accepted','muchos turnos no deben vencer el encargo si el reloj no avanzó');
+ s.elapsedWorldMs=21*60000;
+ waitTurn(s);
+ assert.equal(s.quests[0]!.status,'failed','el encargo debe fracasar al superar su minuto límite aunque no se hayan acumulado turnos equivalentes');
+});

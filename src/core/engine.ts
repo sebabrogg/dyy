@@ -4,6 +4,7 @@ import {ageSocialMemories,classifyUtterance,recordSocialEvent,recordObservedSoci
 import {decideNpcBehavior,intentForSocialEvent,recentThreatCount} from './ai-matrix.ts';
 import {makeLifeQuest,questOfferFor} from './character.ts';
 import {classifyWorkIntent} from './quest-intent.ts';
+import {chooseAutonomousDirection} from './autonomy.ts';
 const WALKABLE=new Set(['floor','road','scrap','grass','door']);
 const DIRECTIONS=[[1,0],[-1,0],[0,1],[0,-1]] as const;
 export function tileAt(s:WorldState,x:number,y:number){return x<0||y<0||x>=s.width||y>=s.height?undefined:s.tiles[indexOf(x,y,s.width)];}
@@ -46,8 +47,8 @@ function tickWorld(s:WorldState):void{
   const d=distance(s.player,a);
   if(d<=5){a.lastSeenPlayerTick=s.tick;const rel=relationshipTo(a);if(rel.hostility>=75||rel.resentment>=82)a.disposition='hostile';else if(rel.hostility>=40&&a.disposition!=='hostile')a.disposition='wary';if(d<=2){if(a.disposition==='hostile')a.alert=Math.min(100,a.alert+8);else if(a.disposition==='wary')a.alert=Math.min(100,a.alert+2);if(a.alert>=32&&shouldAttack(a,'player',a.alert,0)){s.player.health=Math.max(0,s.player.health-2);addLog(s,a.name+' te ataca. No parece dispuesto a dejar pasar lo ocurrido.','danger');addLog(s,'El impacto te sacude; el dolor reclama tu atención.','feeling');}}}
   else a.alert=Math.max(0,a.alert-1);
-  // A small deterministic idle policy: people reposition only when their local situation permits it.
-  if(rng.next()<.18&&a.alert<20&&d>2){const [dx,dy]=rng.pick(DIRECTIONS);const nx=a.x+dx,ny=a.y+dy;if(walkable(s,nx,ny)){a.x=nx;a.y=ny;}}
+  // Movement follows current social context and personality, not a uniform idle roll.
+  if(a.alert<65&&d>2){const direction=chooseAutonomousDirection(a,s.actors.filter(v=>v.id!==a.id&&v.alive),()=>rng.next());if(direction){const nx=a.x+direction.dx,ny=a.y+direction.dy;if(walkable(s,nx,ny)){a.x=nx;a.y=ny;}}}
  }
  resolveQuestConsequences(s);
  // Gossip is local, contact-gated, and deterministic. Each actor can pass at most one known event per tick.

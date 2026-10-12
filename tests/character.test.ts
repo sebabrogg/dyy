@@ -2,7 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {generateWorld} from '../src/world/generate.ts';
 import {canOfferLifeQuest} from '../src/core/character.ts';
-import {selectActor,talk} from '../src/core/engine.ts';
+import {inspect,selectActor,talk} from '../src/core/engine.ts';
 
 test('cada NPC recibe biografía, trauma, cognición, matices de personalidad y misión reproducibles',()=>{
   const a=generateWorld(1776),b=generateWorld(1776),c=generateWorld(1777);
@@ -48,4 +48,13 @@ test('un NPC elegible puede ofrecer un encargo y el jugador aceptarlo explícita
   talk(s,'acepto');
   assert.equal(s.quests[0]!.status,'accepted');
   assert.equal(s.quests[0]!.acceptedAtTick!==null,true);
+});
+
+
+test('examinar un NPC solo revela señales observables y nunca su biografía interna',()=>{
+  const s=generateWorld(991),npc=s.actors[0]!;
+  s.player.x=npc.x;s.player.y=npc.y;s.selectedActorId=npc.id;s.selectedTile={x:npc.x,y:npc.y};
+  inspect(s);
+  const output=s.log.map(e=>e.text).join('\n');
+  assert.doesNotMatch(output,/IQ|misión vital|trauma|historia:|conocimientos:|fortalezas:|limitaciones:|años|razonamiento|personalidad \(/i);
 });

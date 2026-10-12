@@ -159,3 +159,26 @@ body { overflow: hidden !important; }
   .right-panel > .conversation-dock { order: 0; flex: 0 0 300px; min-height: 260px; max-height: none; width: 100%; margin: 4px 0; display: flex; flex-direction: column; overflow: hidden; }
   .conversation-dock .dialogue-feed { flex: 1 1 0; min-height: 40px; overflow-y: auto; }
 }
+
+/* Información del sujeto: percepción y encargos comparten una pestaña compacta. */
+.left-panel { position: relative; }
+.subject-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; margin: 0 0 10px; border-bottom: 1px solid #303638; }
+.subject-tabs .subject-tab { min-width: 0; padding: 9px 5px; background: transparent; border: 0; border-bottom: 2px solid transparent; color: #788380; font-size: 9px; letter-spacing: .07em; }
+.subject-tabs .subject-tab.active { color: #e0c17c; border-bottom-color: #c3a263; background: #25251f; }
+.subject-tab-panel[hidden], .inventory-popup[hidden] { display: none !important; }
+.subject-tab-panel { min-height: 0; }
+.subject-tab-panel .target-card { margin: 0 0 9px; }
+.subject-tab-panel .target-detail { margin-bottom: 12px; }
+.subject-tab-panel .quest-list { max-height: min(32vh, 320px); overflow-y: auto; overscroll-behavior: contain; }
+.inventory-folder { display: flex; align-items: center; gap: 8px; width: 100%; margin-top: 10px; padding: 10px 9px; text-align: left; background: #202628; border: 1px solid #3a4344; color: #b7c0b9; font-size: 9px; letter-spacing: .09em; }
+.inventory-folder .folder-count { margin-left: auto; }
+.folder-icon { color: #d0aa65; }
+.folder-count { color: #d0aa65; font-size: 9px; }
+.folder-chevron { color: #77817f; }
+.inventory-popup { position: absolute; z-index: 30; left: 8px; right: 8px; bottom: 42px; max-height: min(58vh, 440px); overflow: auto; padding: 12px; border: 1px solid #76633f; background: #171c1e; box-shadow: 0 12px 36px #000b; }
+.inventory-popup-heading { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 10px; color: #d0aa65; font-size: 9px; letter-spacing: .1em; }
+.inventory-popup-heading button { padding: 3px 8px; font-size: 16px; }
+.inventory-popup .inventory { display: flex; flex-direction: column; gap: 7px; }
+.inventory-popup .inventory-item { padding: 8px; border: 1px solid #30383a; background: #1c2224; }
+.inventory-popup .inventory-item small { display: block; margin-top: 4px; color: #77817f; }
+@media (max-width: 900px) { .inventory-popup { position: fixed; left: 12px; right: 12px; bottom: 12px; max-height: 70dvh; } }

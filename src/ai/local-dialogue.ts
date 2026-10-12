@@ -2,7 +2,7 @@ import type {Actor,LogEntry} from '../core/types.ts';
 
 export const LOCAL_AI_ENDPOINT='http://127.0.0.1:11434/api/chat';
 export const DEFAULT_LOCAL_MODEL='qwen2.5:3b';
-export const LOCAL_AI_TIMEOUT_MS=9000;
+export const LOCAL_AI_TIMEOUT_MS=45000;
 
 export interface DialogueContext {
  actorName:string; faction:string; personality:string; goal:string;

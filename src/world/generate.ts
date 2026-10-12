@@ -34,8 +34,21 @@ export function generateWorld(seed=WORLD_SEED):WorldState{
  for(let by=2;by<height-3;by+=structureRng.int(5,7))for(let bx=2;bx<width-3;bx+=structureRng.int(6,9)){
   const x0=Math.min(bx+structureRng.int(0,2),width-4),y0=Math.min(by+structureRng.int(0,2),height-4),bw=structureRng.int(2,5),bh=structureRng.int(2,5);
   for(let y=y0;y<Math.min(y0+bh,height-1);y++)for(let x=x0;x<Math.min(x0+bw,width-1);x++)if(tiles[indexOf(x,y,width)]!.terrain!=='road'&&structureRng.next()>.08)tiles[indexOf(x,y,width)]!.terrain='building';
-  const candidates:Tile[]=[];for(let y=y0;y<Math.min(y0+bh,height-1);y++)for(let x=x0;x<Math.min(x0+bw,width-1);x++){const t=tiles[indexOf(x,y,width)]!;if(t.terrain==='building')candidates.push(t);}
-  if(candidates.length){const door=choose(structureRng,candidates);door.terrain='door';}
+  // An entrance must sit on the outside edge of a structure, face walkable ground,
+  // and lead to an actual interior tile. Randomly choosing any wall tile produced
+  // unreachable doors embedded in the middle of buildings.
+  const candidates:{door:Tile;inside:Tile}[]=[];
+  const x1=Math.min(x0+bw,width-1),y1=Math.min(y0+bh,height-1);
+  for(let y=y0;y<y1;y++)for(let x=x0;x<x1;x++){
+   const door=tiles[indexOf(x,y,width)]!;if(door.terrain!=='building')continue;
+   const directions:[number,number,boolean][]=[[-1,0,x===x0],[1,0,x===x1-1],[0,-1,y===y0],[0,1,y===y1-1]];
+   for(const [dx,dy,onEdge] of directions){
+    if(!onEdge)continue;
+    const outside=tiles[indexOf(x+dx,y+dy,width)],inside=tiles[indexOf(x-dx,y-dy,width)];
+    if(outside&&inside&&['floor','road','scrap','grass'].includes(outside.terrain)&&inside.terrain==='building')candidates.push({door,inside});
+   }
+  }
+  if(candidates.length){const entrance=choose(structureRng,candidates);entrance.door.terrain='door';entrance.inside.terrain='floor';}
  }
  // Keep the start accessible, but not a hard-coded clearing or a fixed NPC arrangement.
  for(let y=centerY-2;y<=centerY+2;y++)for(let x=centerX-2;x<=centerX+2;x++)if(x>0&&y>0&&x<width-1&&y<height-1&&tiles[indexOf(x,y,width)]!.terrain!=='road')tiles[indexOf(x,y,width)]!.terrain='floor';

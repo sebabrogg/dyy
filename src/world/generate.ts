@@ -1,38 +1,57 @@
 import {stream} from '../core/rng.ts';
 import {generateLifeMission,generateNpcMind} from '../core/character.ts';
-import {indexOf,type Actor,type Terrain,type Tile,type WorldState,type WorldLocation} from '../core/types.ts';
-export const WORLD_SEED=0xD1570, WORLD_WIDTH=32, WORLD_HEIGHT=24;
-function carveRoad(tiles:Tile[],y:number,w:number):void{for(let x=0;x<w;x++)tiles[indexOf(x,y,w)]!.terrain='road';}
+import {indexOf,type Actor,type Terrain,type Tile,type WorldState,type WorldLocation,type Disposition} from '../core/types.ts';
+export const WORLD_SEED=0xD1570, WORLD_WIDTH=48, WORLD_HEIGHT=36;
+const firstNames=['Mara','Ivo','Nadia','Tomás','Ema','Bruno','Luz','Ciro','Malena','Damián','Inés','Gael','Vera','Nicolás','Ayla','Rafael','Sol','Elías','Noa','Milena','León','Amparo','Tadeo','Uma','Santino','Irina','Bautista','Zoe','Julián','Micaela'];
+const surnames=['Venn','Salcedo','Kroll','Riel','Soria','Kehl','Arce','Ferreyra','Luján','Paz','Montalvo','Rossi','Bentos','Silveira','Falcón','Ledesma','Quintana','Nóbile','Viera','Sosa','Méndez','Cabrera','Gadea','Perdomo','Lago','Pereira','Brito','Acosta'];
+const factions=[{name:'UAC',color:'#df795d',glyph:'♜'},{name:'EME',color:'#b5a0d4',glyph:'◆'},{name:'Gruta',color:'#8bb8a0',glyph:'⚒'},{name:'Sin afiliación',color:'#d5b77a',glyph:'✦'}];
+const roles=[
+ {role:'guardia de distrito',goals:['controlar el acceso a la zona','averiguar quién roba suministros','mantener a su patrulla con vida','conseguir un permiso para su hermana'],traits:['vigilante','desconfiado','disciplinado','rencoroso','protector']},
+ {role:'mecánico',goals:['reparar el generador del refugio','conseguir piezas para una prótesis','vender repuestos antes del toque de queda','descubrir por qué falla la red eléctrica'],traits:['ingenioso','impaciente','práctico','orgulloso','generoso']},
+ {role:'sanitaria',goals:['encontrar antibióticos','atender a un paciente que oculta síntomas','proteger las reservas médicas','localizar a un colega desaparecido'],traits:['compasivo','metódico','agotado','franco','reservado']},
+ {role:'recolector',goals:['vender chatarra antes del toque de queda','encontrar comida para su familia','recuperar una herramienta perdida','evitar una deuda con los contratistas'],traits:['oportunista','cauteloso','ingenioso','evasivo','afable']},
+ {role:'mensajera',goals:['entregar un paquete sin llamar la atención','averiguar quién intercepta mensajes','reunirse con un contacto que dejó de responder','cruzar el distrito antes de la lluvia'],traits:['observador','discreto','nervioso','leal','astuto']},
+ {role:'contratista',goals:['cobrar una deuda pendiente','expulsar a quien no tenga permiso','conseguir protección para su cuadrilla','ocultar un error en una entrega'],traits:['intimidante','calculador','ambicioso','susceptible','pragmático']},
+ {role:'archivista',goals:['reconstruir un registro de desaparecidos','probar que una orden fue falsificada','encontrar el origen de un rumor','preservar testimonios antes de que los borren'],traits:['curioso','minucioso','idealista','escéptico','introvertido']},
+ {role:'cocinera',goals:['conseguir raciones para el comedor','averiguar quién diluye el agua','mantener abierto el comedor colectivo','encontrar a un familiar entre los desplazados'],traits:['directo','maternal','duro','hospitalario','práctico']},
+ {role:'técnico de comunicaciones',goals:['restaurar una antena','interceptar una señal desconocida','reparar el enlace con otro distrito','averiguar quién escucha el canal privado'],traits:['obsesivo','curioso','paranoico','paciente','sarcástico']},
+ {role:'trabajadora social',goals:['conseguir refugio para una familia','resolver una disputa por suministros','localizar a una persona expulsada','evitar que cierren el dormitorio comunitario'],traits:['empático','firme','diplomático','agotado','terco']},
+ {role:'chatarrero',goals:['encontrar cobre para una deuda','recuperar piezas de un vehículo','vender un hallazgo sin revelar su origen','evitar que le quiten su zona de recolección'],traits:['codicioso','desconfiado','bromista','competitivo','oportunista']},
+ {role:'investigadora',goals:['seguir una pista sobre Psico-Link','comprobar una versión oficial','encontrar a una fuente que se esconde','proteger pruebas de una redada'],traits:['analítico','persistente','reservado','temerario','escéptico']},
+];
+const locationNames:[string,string][]=[['Clínica de campaña','salud'],['Depósito de suministros','almacén'],['Taller de reparación','taller'],['Puesto de vigilancia','seguridad'],['Refugio de desplazados','refugio'],['Mercado de raciones','comercio'],['Estación de bombeo','infraestructura'],['Puesto de comunicaciones','comunicaciones'],['Viviendas obreras','vivienda'],['Laboratorio clausurado','laboratorio'],['Comedor colectivo','comedor'],['Garaje de mantenimiento','garaje'],['Archivo vecinal','archivo'],['Puesto de trueque','comercio'],['Dormitorio comunitario','refugio'],['Subestación eléctrica','infraestructura']];
+function choose<T>(r:{int(min:number,max:number):number},items:readonly T[]):T{return items[r.int(0,items.length-1)]!;}
+function carveRoad(tiles:Tile[],y:number,width:number):void{for(let x=1;x<width-1;x++)tiles[indexOf(x,y,width)]!.terrain='road';}
 export function generateWorld(seed=WORLD_SEED):WorldState{
- const mapRng=stream(seed,'map.terrain'),layoutRng=stream(seed,'map.layout'),structureRng=stream(seed,'map.structures'),actorRng=stream(seed,'actors.population'),socialRng=stream(seed,'actors.social');
- const width=WORLD_WIDTH,height=WORLD_HEIGHT;
- const tiles:Tile[]=Array.from({length:width*height},(_,i)=>{const x=i%width,y=Math.floor(i/width);const r=mapRng.next();const terrain:Terrain=x===0||y===0||x===width-1||y===height-1?'wall':r<.07?'grass':r<.105?'scrap':'floor';return{x,y,terrain,explored:false};});
- const roadRows=[layoutRng.int(4,7),12,layoutRng.int(17,20)];for(const y of roadRows)carveRoad(tiles,y,width);const roadColumns=[layoutRng.int(5,9),layoutRng.int(14,18),layoutRng.int(23,27)];for(let y=0;y<height;y++)for(const x of roadColumns)tiles[indexOf(x,y,width)]!.terrain='road';
- for(let by=2;by<height-2;by+=7)for(let bx=2;bx<width-2;bx+=8){const ox=structureRng.int(0,2),oy=structureRng.int(0,2),x0=Math.min(bx+ox,width-3),y0=Math.min(by+oy,height-3),bw=structureRng.int(2,4),bh=structureRng.int(2,4);for(let y=y0;y<Math.min(y0+bh,height-1);y++)for(let x=x0;x<Math.min(x0+bw,width-1);x++)if(tiles[indexOf(x,y,width)]!.terrain!=='road')tiles[indexOf(x,y,width)]!.terrain='building';const dx=Math.min(x0+bw-1,width-2),dy=Math.min(y0+bh-1,height-2);if(tiles[indexOf(dx,dy,width)]!.terrain==='building')tiles[indexOf(dx,dy,width)]!.terrain='door';}
- for(let y=9;y<=15;y++)for(let x=13;x<=19;x++)tiles[indexOf(x,y,width)]!.terrain='floor';for(let x=0;x<=16;x++)tiles[indexOf(x,12,width)]!.terrain='road';
- const roles=[
- ['Mara Venn','♜','UAC','wary','guardia de distrito','controlar el acceso','#df795d',19,11],
- ['Ivo Salcedo','⚒','Gruta','helpful','mecánico','conseguir piezas para el generador','#8bb8a0',13,13],
- ['Nadia Kroll','◆','EME','neutral','sanitaria','encontrar antibióticos','#b5a0d4',22,15],
- ['Tomás Riel','t','Sin afiliación','neutral','recolector','vender chatarra antes del toque de queda','#d5b77a',10,8],
- ['Ema Soria','e','Gruta','wary','mensajera','entregar un paquete sin llamar la atención','#8bb8a0',20,17],
- ['Bruno Kehl','B','UAC','hostile','contratista','expulsar a quien no tenga permiso','#df795d',24,10],
- ['Luz Arce','L','EME','helpful','archivista','reconstruir un registro de desaparecidos','#b5a0d4',11,15]
- ] as const;
- for(const r of roles){const x=r[7],y=r[8];tiles[indexOf(x,y,width)]!.terrain='floor';}
- const actors:Actor[]=roles.map((r,i)=>{const trust=actorRng.int(25,65);return ({id:'npc-'+String(i+1).padStart(2,'0'),name:r[0],knownToPlayer:i<3,glyph:r[2]==='UAC'?'♜':r[2]==='EME'?'◆':r[2]==='Gruta'?'⚒':'✦',faction:r[2],disposition:r[3],personality:r[4],goal:r[5],color:r[6],x:r[7],y:r[8],trust,alert:0,alive:true,lastSeenPlayerTick:-1,mind:generateNpcMind(seed,'npc-'+String(i+1).padStart(2,'0'),r[4],r[2]),lifeMission:generateLifeMission(seed,{id:'npc-'+String(i+1).padStart(2,'0'),name:r[0],goal:r[5],personality:r[4],faction:r[2]}),social:{
-  traits:{susceptibility:socialRng.int(15,85),reactivity:socialRng.int(15,85),grudge:socialRng.int(10,90),pride:socialRng.int(10,90),selfControl:socialRng.int(10,90),vengefulness:socialRng.int(5,80),reconciliation:socialRng.int(10,85)},
-  memories:[],knowledge:[],contacts:{},reputation:{},
-  relationships:{player:{affection:0,trust,respect:25,resentment:0,fear:0,debt:0,hostility:r[3]==='hostile'?45:r[3]==='wary'?15:0}},lastAgedTick:0
- }});});
- const locationNames=[['Clínica de campaña','salud'],['Depósito de suministros','almacén'],['Taller de reparación','taller'],['Puesto de vigilancia','seguridad'],['Refugio de desplazados','refugio'],['Mercado de raciones','comercio'],['Estación de bombeo','infraestructura'],['Puesto de comunicaciones','comunicaciones'],['Viviendas obreras','vivienda'],['Laboratorio clausurado','laboratorio'],['Comedor colectivo','comedor'],['Garaje de mantenimiento','garaje']];
- const locationTiles=tiles.filter(tile=>tile.terrain==='door').sort((a,b)=>a.y-b.y||a.x-b.x);
- const locations:WorldLocation[]=locationTiles.map((tile,i)=>{const [name,kind]=locationNames[i%locationNames.length]!;return{id:'location-'+String(i+1).padStart(2,'0'),name,kind,x:tile.x,y:tile.y,discovered:Math.max(Math.abs(tile.x-15),Math.abs(tile.y-12))<=4,knownByActorIds:[]};});
- for(const location of locations)location.knownByActorIds=actors.filter(actor=>Math.max(Math.abs(actor.x-location.x),Math.abs(actor.y-location.y))<=9).map(actor=>actor.id);
- for(let i=0;i<actors.length;i++)for(let j=i+1;j<actors.length;j++){
-  const a=actors[i]!,b=actors[j]!,d=Math.hypot(a.x-b.x,a.y-b.y);
-  const connected=d<=10&&(a.faction===b.faction||socialRng.next()<.28);
-  if(connected){const strength=socialRng.int(35,85);a.social.contacts[b.id]=strength;b.social.contacts[a.id]=strength;}
+ const dimensionRng=stream(seed,'map.dimensions'),mapRng=stream(seed,'map.terrain'),layoutRng=stream(seed,'map.layout'),structureRng=stream(seed,'map.structures'),actorRng=stream(seed,'actors.population'),socialRng=stream(seed,'actors.social');
+ const width=dimensionRng.int(44,56),height=dimensionRng.int(32,42),centerX=Math.floor(width/2),centerY=Math.floor(height/2);
+ const tiles:Tile[]=Array.from({length:width*height},(_,i)=>{const x=i%width,y=Math.floor(i/width),r=mapRng.next();const terrain:Terrain=x===0||y===0||x===width-1||y===height-1?'wall':r<.055?'grass':r<.09?'scrap':r<.015?'water':'floor';return{x,y,terrain,explored:false};});
+ const roadRows=new Set([centerY,layoutRng.int(4,Math.max(5,Math.floor(height*.28))),layoutRng.int(Math.floor(height*.68),height-5)]);
+ for(const y of roadRows)carveRoad(tiles,y,width);
+ const roadColumns=new Set([centerX,layoutRng.int(4,Math.max(5,Math.floor(width*.28))),layoutRng.int(Math.floor(width*.68),width-5)]);
+ for(let y=1;y<height-1;y++)for(const x of roadColumns)tiles[indexOf(x,y,width)]!.terrain='road';
+ // Blocks are generated between roads, with variable footprints, alleys, and entrances.
+ for(let by=2;by<height-3;by+=structureRng.int(5,7))for(let bx=2;bx<width-3;bx+=structureRng.int(6,9)){
+  const x0=Math.min(bx+structureRng.int(0,2),width-4),y0=Math.min(by+structureRng.int(0,2),height-4),bw=structureRng.int(2,5),bh=structureRng.int(2,5);
+  for(let y=y0;y<Math.min(y0+bh,height-1);y++)for(let x=x0;x<Math.min(x0+bw,width-1);x++)if(tiles[indexOf(x,y,width)]!.terrain!=='road'&&structureRng.next()>.08)tiles[indexOf(x,y,width)]!.terrain='building';
+  const candidates:Tile[]=[];for(let y=y0;y<Math.min(y0+bh,height-1);y++)for(let x=x0;x<Math.min(x0+bw,width-1);x++){const t=tiles[indexOf(x,y,width)]!;if(t.terrain==='building')candidates.push(t);}
+  if(candidates.length){const door=choose(structureRng,candidates);door.terrain='door';}
  }
- return{paused:false,elapsedWorldMs:0,lastClockUpdate:Date.now(),seed,width,height,tiles,locations,actors,player:{x:15,y:12,health:82,sanity:74,hunger:21,sleepDebtMinutes:0,inventory:[{id:'water',name:'Agua recuperada',quantity:1,description:'Agua filtrada con un regusto metálico.'},{id:'scrap',name:'Chatarra útil',quantity:3,description:'Piezas que todavía podrían servir.'},{id:'ration',name:'Ración comprimida',quantity:1,description:'Alimento barato y difícil de tragar.'}]},tick:0,day:1,minute:360,selectedActorId:null,selectedTile:null,log:[],quests:[],running:true};
+ // Keep the start accessible, but not a hard-coded clearing or a fixed NPC arrangement.
+ for(let y=centerY-2;y<=centerY+2;y++)for(let x=centerX-2;x<=centerX+2;x++)if(x>0&&y>0&&x<width-1&&y<height-1&&tiles[indexOf(x,y,width)]!.terrain!=='road')tiles[indexOf(x,y,width)]!.terrain='floor';
+ tiles[indexOf(centerX,centerY,width)]!.terrain='floor';
+ const usedNames=new Set<string>();const populationCount=actorRng.int(8,12);const actorIds=Array.from({length:populationCount},(_,i)=>'npc-'+String(i+1).padStart(2,'0'));
+ const shuffledRoles=[...roles].sort(()=>actorRng.next()-.5);const freeTiles=()=>tiles.filter(t=>['floor','road','scrap','grass'].includes(t.terrain)&&Math.max(Math.abs(t.x-centerX),Math.abs(t.y-centerY))>3);
+ const positions:Tile[]=[];const available=freeTiles();while(positions.length<populationCount&&available.length){const idx=actorRng.int(0,available.length-1);const t=available.splice(idx,1)[0]!;if(positions.every(p=>Math.hypot(p.x-t.x,p.y-t.y)>=3))positions.push(t);}
+ while(positions.length<populationCount){const t=tiles.find(v=>v.terrain==='floor'&&!positions.some(p=>p.x===v.x&&p.y===v.y))!;positions.push(t);}
+ const actors:Actor[]=actorIds.map((id,i)=>{
+  let name='';for(let attempt=0;attempt<80;attempt++){const candidate=choose(actorRng,firstNames)+' '+choose(actorRng,surnames);if(!usedNames.has(candidate)){name=candidate;usedNames.add(candidate);break;}}if(!name)name='Habitante '+(i+1);
+  const template=shuffledRoles[i%shuffledRoles.length]!,faction=choose(actorRng,factions),disposition=(i===1?'helpful':choose(actorRng,['wary','neutral','hostile','helpful'] as const)) as Disposition,personality=choose(actorRng,template.traits),goal=choose(actorRng,template.goals),pos=positions[i]!,trust=i===1?75:i===0?20:actorRng.int(10,80);
+  return{id,name,knownToPlayer:i<3,glyph:faction.glyph,faction:faction.name,disposition,personality:template.role+'; '+personality,goal,color:faction.color,x:pos.x,y:pos.y,trust,alert:0,alive:true,lastSeenPlayerTick:-1,mind:generateNpcMind(seed,id,template.role,faction.name),lifeMission:generateLifeMission(seed,{id,name,goal,personality,faction:faction.name}),social:{traits:{susceptibility:socialRng.int(15,85),reactivity:socialRng.int(15,85),grudge:socialRng.int(10,90),pride:socialRng.int(10,90),selfControl:socialRng.int(10,90),vengefulness:socialRng.int(5,80),reconciliation:socialRng.int(10,85)},memories:[],placeMemories:[],knowledge:[],contacts:{},reputation:{},relationships:{player:{affection:0,trust,respect:actorRng.int(5,70),resentment:0,fear:actorRng.int(0,25),debt:0,hostility:disposition==='hostile'?actorRng.int(25,65):disposition==='wary'?actorRng.int(5,35):0}},lastAgedTick:0}};
+ });
+ const locationTiles=tiles.filter(tile=>tile.terrain==='door').sort(()=>structureRng.next()-.5);
+ const locations:WorldLocation[]=locationTiles.map((tile,i)=>{const [name,kind]=locationNames[i%locationNames.length]!;return{id:'location-'+String(i+1).padStart(2,'0'),name,kind,x:tile.x,y:tile.y,discovered:false,knownByActorIds:[]};});
+ for(const location of locations)location.knownByActorIds=actors.filter(actor=>Math.max(Math.abs(actor.x-location.x),Math.abs(actor.y-location.y))<=9).map(actor=>actor.id);
+ for(let i=0;i<actors.length;i++)for(let j=i+1;j<actors.length;j++){const a=actors[i]!,b=actors[j]!,d=Math.hypot(a.x-b.x,a.y-b.y);const connected=d<=12&&(a.faction===b.faction||socialRng.next()<.24);if(connected){const strength=socialRng.int(20,90);a.social.contacts[b.id]=strength;b.social.contacts[a.id]=strength;}}
+ return{paused:false,elapsedWorldMs:0,lastClockUpdate:Date.now(),seed,width,height,tiles,locations,actors,player:{x:centerX,y:centerY,health:82,sanity:74,hunger:21,sleepDebtMinutes:0,inventory:[{id:'water',name:'Agua recuperada',quantity:1,description:'Agua filtrada con un regusto metálico.'},{id:'scrap',name:'Chatarra útil',quantity:3,description:'Piezas que todavía podrían servir.'},{id:'ration',name:'Ración comprimida',quantity:1,description:'Alimento barato y difícil de tragar.'}]},tick:0,day:1,minute:360,selectedActorId:null,selectedTile:null,log:[],quests:[],running:true};
 }

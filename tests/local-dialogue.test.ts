@@ -85,3 +85,5 @@ test('termina al recibir done=true aunque el puente no cierre el stream',async()
   assert.equal(result,'Estoy ocupado.');
  } finally {globalThis.fetch=oldFetch;}
 });
+
+test('el diálogo elimina acciones entre asteriscos y evita gestos repetidos',()=>{assert.equal(cleanNpcLine('*se encoge de hombros* No sé. *se encoge de hombros*'),'No sé.');});

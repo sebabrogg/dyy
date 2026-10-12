@@ -1,4 +1,7 @@
 import http from 'node:http';
+import fs from 'node:fs/promises';
+import os from 'node:os';
+import path from 'node:path';
 
 const HOST = process.env.DYSTO_BRIDGE_HOST || '127.0.0.1';
 const PORT = Number(process.env.DYSTO_OPENCODE_BRIDGE_PORT || 11436);
@@ -7,6 +10,10 @@ const USERNAME = process.env.OPENCODE_SERVER_USERNAME || 'opencode';
 const PASSWORD = process.env.OPENCODE_SERVER_PASSWORD || '';
 const MAX_BODY = 1024 * 1024;
 const ALLOWED_ORIGINS = new Set((process.env.DYSTO_ALLOWED_ORIGINS || 'https://sb-5hj233f78g7w.vercel.run,http://localhost:5173,http://127.0.0.1:5173').split(',').map(value => value.trim()).filter(Boolean));
+const SESSION_STORE = path.join(os.homedir(), '.cache', 'dysto-opencode-sessions.json');
+let sessionStore = {};
+try { sessionStore = JSON.parse(await fs.readFile(SESSION_STORE, 'utf8')); } catch {}
+async function persistSessions() { await fs.mkdir(path.dirname(SESSION_STORE), { recursive: true }); await fs.writeFile(SESSION_STORE, JSON.stringify(sessionStore, null, 2), { mode: 0o600 }); }
 
 function headers() {
   const value = { 'Content-Type': 'application/json' };
@@ -52,11 +59,19 @@ const server = http.createServer(async (req, res) => {
     const system = messages.filter(message => message?.role === 'system').map(message => String(message.content || '')).join('\n\n');
     const prompt = messages.filter(message => message?.role !== 'system').map(message => `${message?.role === 'assistant' ? 'Contexto previo del personaje' : 'Jugador'}: ${String(message?.content || '')}`).join('\n\n');
     if (!prompt.trim()) { send(res, 400, { error: 'Falta el mensaje del jugador' }); return; }
-    const sessionResponse = await request('/session', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: 'Dysto · diálogo NPC' }) });
-    const sessionText = await sessionResponse.text();
-    if (!sessionResponse.ok) { send(res, 502, { error: `OpenCode no pudo crear una sesión (${sessionResponse.status}): ${sessionText.slice(0, 500)}` }); return; }
-    const session = JSON.parse(sessionText);
-    const messageResponse = await request(`/session/${encodeURIComponent(session.id)}/message`, {
+    const rawKey = String(input.sessionKey || 'npc-default').slice(0, 180);
+    const sessionKey = rawKey.replace(/[^a-zA-Z0-9._:-]/g, '_');
+    let sessionId = sessionStore[sessionKey];
+    if (!sessionId) {
+      const sessionResponse = await request('/session', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ title: 'Dysto · ' + sessionKey }) });
+      const sessionText = await sessionResponse.text();
+      if (!sessionResponse.ok) { send(res, 502, { error: `OpenCode no pudo crear una sesión (${sessionResponse.status}): ${sessionText.slice(0, 500)}` }); return; }
+      const session = JSON.parse(sessionText);
+      sessionId = session.id;
+      sessionStore[sessionKey] = sessionId;
+      await persistSessions();
+    }
+    const messageResponse = await request(`/session/${encodeURIComponent(sessionId)}/message`, {
       method: 'POST', headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ system, tools: {}, parts: [{ type: 'text', text: prompt }] }),
     });

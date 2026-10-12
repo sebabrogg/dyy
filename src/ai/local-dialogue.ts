@@ -30,26 +30,27 @@ export interface DialogueContext {
  disposition:string; relationship:string; memories:string[]; playerKnowledge:string[];
  playerIdentity:string; observedPlayer:string;
  playerLine:string; engineLine:string; internalMind:string; lifeMission:string; observedSurroundings:string;
+ socialContext:string;
 }
 
-export function buildDialogueContext(actor:Actor,playerLine:string,engineLine:string,observedSurroundings='No hay observaciones del entorno disponibles.'):DialogueContext {
+export function buildDialogueContext(actor:Actor,playerLine:string,engineLine:string,observedSurroundings='No hay observaciones del entorno disponibles.',socialContext='No hay más relaciones o lugares conocidos disponibles.'):DialogueContext {
  const relation=actor.social.relationships.player;
- const allMemories=actor.social.memories.filter(memory=>memory.targetId==='player');
+ const allMemories=actor.social.memories;
  const recentMemories=allMemories.slice(-8);
  const recentIds=new Set(recentMemories.map(memory=>memory.id));
  const salientMemories=allMemories.filter(memory=>!recentIds.has(memory.id)).sort((a,b)=>b.salience-a.salience).slice(0,4);
  const memories=[...new Map([...salientMemories,...recentMemories].map(memory=>[memory.id,memory])).values()].sort((a,b)=>a.tick-b.tick);
- const knowledge=actor.social.knowledge.filter(fact=>fact.targetId==='player'||fact.subjectId==='player').slice(-12);
+ const knowledge=actor.social.knowledge.slice(-16);
  return {
   actorName:actor.name,faction:actor.faction,personality:actor.personality,goal:actor.goal,
   disposition:actor.disposition,
   relationship:relation?'confianza '+relation.trust+'/100; hostilidad '+relation.hostility+'/100; resentimiento '+relation.resentment+'/100; miedo '+relation.fear+'/100; respeto '+relation.respect+'/100; afecto '+relation.affection+'/100; deuda '+relation.debt+'/100':'relación desconocida',
-  memories:memories.map(memory=>'T+'+memory.tick+' ['+memory.kind+', importancia '+memory.salience+'/100] '+(memory.description||memory.interpretation)),
+  memories:memories.map(memory=>'T+'+memory.tick+' [objetivo '+(memory.targetId==='player'?'jugador':memory.targetId)+', '+memory.kind+', importancia '+memory.salience+'/100] '+(memory.description||memory.interpretation)),
   playerKnowledge:knowledge.map(fact=>'T+'+fact.tick+' ['+fact.source+', confianza '+fact.confidence+'/100, saltos '+fact.hops+'] '+fact.interpretation),
   playerIdentity:'La persona que tengo delante es el jugador. No conozco automáticamente su nombre, historia, estadísticas, inventario ni pensamientos. Solo puedo atribuirle identidad o características que haya observado, que me haya contado o que me hayan llegado por una fuente identificable.',
   observedPlayer:'El jugador está interactuando conmigo ahora. No deduzcas heridas, equipo, intenciones ni estado mental sin evidencia explícita.',
   playerLine:playerLine.slice(0,500),engineLine:engineLine.slice(0,240),
-  internalMind:JSON.stringify(actor.mind),lifeMission:JSON.stringify(actor.lifeMission),observedSurroundings,
+  internalMind:JSON.stringify(actor.mind),lifeMission:JSON.stringify(actor.lifeMission),observedSurroundings,socialContext,
  };
 }
 
@@ -66,7 +67,7 @@ export function buildDialogueMessages(context:DialogueContext):Array<{role:'syst
   'No hay respuesta base ni diálogo prefabricado. No reveles datos privados solo porque estén en tu contexto; decide si este personaje los compartiría en esta situación.',
   'Interpreta la intención completa del mensaje, no palabras aisladas. Si el jugador pregunta si tenés encargos, recados, mandados, tareas, trabajo o algo que puedas confiarle, respondé directamente según si realmente tenés una propuesta. Si el contexto del motor dice que acabás de ofrecer un encargo, reconocelo en diálogo natural, explicá brevemente qué necesitás y no le preguntes al jugador si él tiene un encargo. Si el motor indica que no tenés ningún encargo para ofrecer, decilo con naturalidad y no des vuelta la pregunta para preguntarle si él tiene uno. La hoja de encargos complementa la conversación, nunca la reemplaza. Si el jugador solo dice una palabra ambigua como «encargo», pedí aclaración en vez de disparar una oferta.',
   'No afirmes como hechos cosas que no estén respaldadas por el contexto. Puedes mentir, equivocarte, evadir o expresar incertidumbre si encaja con el personaje, pero no cambies el estado real del mundo.',
-  'Devuelve solo lo que diría el personaje, en una o dos frases breves. No uses etiquetas ni explicaciones externas. Si haces un gesto o una acción física, escríbelo entre asteriscos, por ejemplo *mira hacia la puerta*. No inventes acciones sin motivo.',
+  'Devuelve solo lo que diría el personaje, en una o dos frases breves. No uses etiquetas ni explicaciones externas. No narres gestos entre asteriscos; si una acción física es imprescindible, intégrala de forma breve en la prosa y no la repitas.',
  ].join(' ');
  const user=[
   'PERSONAJE: '+context.actorName,'FACCIÓN: '+context.faction,
@@ -79,23 +80,29 @@ export function buildDialogueMessages(context:DialogueContext):Array<{role:'syst
   'CONTEXTO MENTAL INTERNO (no lo recites; úsalo para razonar): '+context.internalMind,
   'PUNTO DE VISTA PROPIO: sos '+context.actorName+'. Tenés una vida, recuerdos, necesidades, objetivos y motivos para estar donde estás. Podés explicar qué estabas haciendo si lo sabés; no inventes una explicación segura si no la recordás. No sos omnisciente ni conocés hechos fuera de tus sentidos, recuerdos o fuentes. No confundas la interfaz del juego con tu mundo.',
   'ENTORNO OBSERVADO AHORA: '+context.observedSurroundings+'. Solo esto y tus recuerdos justifican lo que sabés del lugar. No afirmes haber visto personajes, objetos o sucesos que no aparecen aquí ni en tus recuerdos.',
+  'PERSONAS, RELACIONES Y LUGARES QUE RECORDÁS: '+(context.socialContext||'sin información adicional registrada'),
   'MISIÓN VITAL PRIVADA: '+context.lifeMission,
   'RESULTADO REAL DEL MOTOR (no lo contradigas): '+(context.engineLine||'sin resultado especial'),
   'EL JUGADOR DIJO: '+context.playerLine,
-  'Responde como el personaje, de forma natural y breve. Decide según su mente y la situación, no según una plantilla.',
+  'Responde como el personaje, de forma natural y breve. Decide según su mente y la situación, no según una plantilla. Prioriza palabras y silencios; no escribas acciones entre asteriscos, gestos teatrales ni descripciones de acciones salvo que sean indispensables para entender lo que ocurre. No repitas un gesto o una idea ya expresados.',
  ].join('\n');
  return [{role:'system',content:system},{role:'user',content:user}];
 }
 
 export function cleanNpcLine(value:string):string {
- return value.replace(/<think>[\s\S]*?<\/think>/gi,'')
-  .replace(/^\s*(respuesta|npc|personaje)\s*:\s*/i,'').trim()
-  .replace(/^["'«]+|["'»]+$/g,'').replace(/\s+/g,' ').trim().slice(0,320);
+ const cleaned=value.replace(/<think>[\s\S]*?<\/think>/gi,'')
+  .replace(/^\s*(respuesta|npc|personaje)\s*:\s*/i,'')
+  .replace(/\*[^*]{1,160}\*/g,' ')
+  .replace(/\s+/g,' ').trim()
+  .replace(/^[\"'«]+|[\"'»]+$/g,'').trim();
+ const parts=cleaned.split(/(?<=[.!?])\s+/);
+ const unique=parts.filter((part,index)=>parts.findIndex(other=>other.toLocaleLowerCase('es')===part.toLocaleLowerCase('es'))===index);
+ return unique.join(' ').replace(/\s+/g,' ').trim().slice(0,320);
 }
 
 export async function generateLocalNpcLine(
  context:DialogueContext,
- options:{endpoint?:string;model?:string;signal?:AbortSignal;onPartial?:(text:string)=>void;onStatus?:(status:string)=>void}={},
+ options:{endpoint?:string;model?:string;sessionKey?:string;signal?:AbortSignal;onPartial?:(text:string)=>void;onStatus?:(status:string)=>void}={},
 ):Promise<string> {
  const provider=resolveAiProvider(typeof window!=='undefined'?window.location.search:'');
  const endpoint=options.endpoint??(provider==='opencode'?OPENCODE_AI_ENDPOINT:LOCAL_AI_ENDPOINT);
@@ -109,7 +116,7 @@ export async function generateLocalNpcLine(
  try {
   const response=await fetch(endpoint,{
    method:'POST',headers:{'Content-Type':'text/plain;charset=UTF-8'},
-   body:JSON.stringify({model:options.model??DEFAULT_LOCAL_MODEL,messages:buildDialogueMessages(context),stream:true,keep_alive:'10m',options:{temperature:0.75,num_predict:72,num_ctx:2048}}),
+   body:JSON.stringify({model:options.model??DEFAULT_LOCAL_MODEL,sessionKey:options.sessionKey??context.actorName,messages:buildDialogueMessages(context),stream:true,keep_alive:'10m',options:{temperature:0.75,num_predict:72,num_ctx:2048}}),
    signal:controller.signal,
   });
   if(!response.ok){let detail='';try{const body=await response.json() as {error?:unknown};if(typeof body.error==='string')detail=': '+body.error;}catch{}throw new Error('El puente local/'+(provider==='opencode'?'OpenCode':'Ollama')+' respondió '+response.status+detail);}

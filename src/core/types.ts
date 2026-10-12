@@ -6,7 +6,8 @@ export interface SocialTraits{susceptibility:number;reactivity:number;grudge:num
 export interface SocialMemory{id:string;targetId:string;tick:number;kind:SocialEventKind;severity:number;salience:number;decayPerDay:number;public:boolean;description:string;interpretation:string;}
 export interface SocialRelationship{affection:number;trust:number;respect:number;resentment:number;fear:number;debt:number;hostility:number;}
 export interface SocialKnowledge{eventId:string;subjectId:string;targetId:string;kind:SocialEventKind;tick:number;confidence:number;source:'witness'|'rumor';interpretation:string;hops:number;}
-export interface ActorSocialState{traits:SocialTraits;memories:SocialMemory[];relationships:Record<string,SocialRelationship>;contacts:Record<string,number>;knowledge:SocialKnowledge[];reputation:Record<string,number>;lastAgedTick:number;}
+export interface PlaceMemory{placeId:string;tick:number;description:string;salience:number;}
+export interface ActorSocialState{traits:SocialTraits;memories:SocialMemory[];placeMemories?:PlaceMemory[];relationships:Record<string,SocialRelationship>;contacts:Record<string,number>;knowledge:SocialKnowledge[];reputation:Record<string,number>;lastAgedTick:number;}
 export interface Actor{id:string;name:string;knownToPlayer?:boolean;glyph:string;x:number;y:number;inventory?:Item[];faction:string;disposition:Disposition;personality:string;goal:string;trust:number;alert:number;alive:boolean;color:string;lastSeenPlayerTick:number;social:ActorSocialState;mind:NpcMind;lifeMission:LifeMission;}
 export interface Item{id:string;name:string;quantity:number;description:string;}
 export type PlayerAppearance='wanderer'|'hooded'|'masked'|'worker'|'armored';

@@ -35,12 +35,12 @@ test('no ofrece una misión a un jugador que no le gusta ni le resulta útil',()
 
 test('la partida inicial incluye al menos un NPC que te considera útil por su confianza previa',()=>{
   const s=generateWorld();
-  const ivo=s.actors.find(a=>a.name==='Ivo Salcedo')!;
-  assert.equal(canOfferLifeQuest(ivo).eligible,true);
+  const eligible=s.actors.find(a=>canOfferLifeQuest(a).eligible);
+  assert.ok(eligible,'la población procedural incluye a alguien dispuesto a confiar una tarea');
 });
 
 test('un NPC elegible puede ofrecer un encargo y el jugador aceptarlo explícitamente',()=>{
-  const s=generateWorld(89),npc=s.actors.find(a=>a.name==='Ivo Salcedo')!;
+  const s=generateWorld(89),npc=s.actors.find(a=>canOfferLifeQuest(a).eligible)!;
   s.player.x=npc.x+1;s.player.y=npc.y;
   npc.social.relationships.player!.affection=80;
   npc.social.relationships.player!.trust=70;
@@ -65,7 +65,7 @@ test('examinar un NPC solo revela señales observables y nunca su biografía int
 
 
 test('una oferta directa de ayuda como «te ayudo con eso» activa el sistema de encargos',()=>{
-  const s=generateWorld(),npc=s.actors.find(a=>a.name==='Ivo Salcedo')!;
+  const s=generateWorld(),npc=s.actors.find(a=>canOfferLifeQuest(a).eligible)!;
   s.player.x=npc.x+1;s.player.y=npc.y;
   selectActor(s,npc.id);
   talk(s,'te ayudo con eso?');
@@ -75,7 +75,7 @@ test('una oferta directa de ayuda como «te ayudo con eso» activa el sistema de
   assert.ok(s.log.some(entry=>entry.text.includes('te propone un encargo')));
 });
 
-test('el recuerdo de una conversación vuelve al contexto individual del NPC',()=>{ const s=generateWorld(991),npc=s.actors.find(a=>a.name==='Ivo Salcedo')!; s.player.x=npc.x+1;s.player.y=npc.y;selectActor(s,npc.id);talk(s,'Te ayudo con eso');const memory=npc.social.memories.find(m=>m.targetId==='player'&&m.kind==='conversation');assert.ok(memory);assert.match(memory!.description,/Te ayudo con eso/);const context=buildDialogueContext(npc,'¿Y entonces?','');assert.ok(context.memories.some(m=>m.includes('Te ayudo con eso')));});
+test('el recuerdo de una conversación vuelve al contexto individual del NPC',()=>{ const s=generateWorld(991),npc=s.actors.find(a=>canOfferLifeQuest(a).eligible)!; s.player.x=npc.x+1;s.player.y=npc.y;selectActor(s,npc.id);talk(s,'Te ayudo con eso');const memory=npc.social.memories.find(m=>m.targetId==='player'&&m.kind==='conversation');assert.ok(memory);assert.match(memory!.description,/Te ayudo con eso/);const context=buildDialogueContext(npc,'¿Y entonces?','');assert.ok(context.memories.some(m=>m.includes('Te ayudo con eso')));});
 
 test('el contexto de diálogo conserva las siete dimensiones de la relación',()=>{
   const s=generateWorld(992),npc=s.actors[0]!;
@@ -111,7 +111,7 @@ test('el contexto de un NPC puede incluir su entorno observado sin convertirlo e
   assert.ok(context.actorName);
 });
 
-test('la partida empieza con un conocimiento parcial de identidades, no con amnesia total',()=>{const s=generateWorld(3001);assert.deepEqual(s.actors.map(a=>a.knownToPlayer),[true,true,true,false,false,false,false]);});
+test('la partida empieza con un conocimiento parcial de identidades, no con amnesia total',()=>{const s=generateWorld(3001);assert.ok(s.actors.slice(0,3).every(a=>a.knownToPlayer));assert.ok(s.actors.slice(3).every(a=>!a.knownToPlayer));});
 
 
 test('preguntar la identidad no revela a un NPC hasta que la respuesta incluye su nombre real',()=>{

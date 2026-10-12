@@ -5,14 +5,15 @@ export const DEFAULT_LOCAL_MODEL='qwen2.5:3b';
 export const LOCAL_AI_TIMEOUT_MS=45000;
 export const LOCAL_AI_HEALTH_TIMEOUT_MS=4000;
 
-async function checkLocalBridge(endpoint:string):Promise<void> {
+async function checkLocalBridge(endpoint:string,onStatus?:(status:string)=>void):Promise<void> {
  const healthUrl=endpoint.replace(/\/api\/chat\/?$/,'/health');
  let timer:ReturnType<typeof setTimeout>|undefined;
  const timeout=new Promise<never>((_,reject)=>{timer=setTimeout(()=>reject(new Error('DIAGNÓSTICO: el puente local no respondió en 4 segundos. Abrí http://127.0.0.1:11435/health en otra pestaña.')),LOCAL_AI_HEALTH_TIMEOUT_MS);});
  try {
+  onStatus?.('IA LOCAL · comprobando puente de la PC…');
   const response=await Promise.race([fetch(healthUrl,{method:'GET',cache:'no-store'}),timeout]);
   if(!response.ok)throw new Error('DIAGNÓSTICO: el puente local responde, pero Ollama no está disponible. Revisá http://127.0.0.1:11435/health.');
-  const health=await response.json() as {ok?:boolean;models?:string[];error?:string};
+  const health=await Promise.race([response.json() as Promise<{ok?:boolean;models?:string[];error?:string}>,timeout]);
   if(!health.ok)throw new Error('DIAGNÓSTICO: Ollama no está disponible. '+(health.error||'Revisá http://127.0.0.1:11435/health.'));
   if(!(health.models||[]).some(model=>model==='qwen2.5:3b'||model.startsWith('qwen2.5:3b-')))throw new Error('DIAGNÓSTICO: falta el modelo qwen2.5:3b. Ejecutá en una terminal: ollama pull qwen2.5:3b');
  } catch(error) {
@@ -68,10 +69,11 @@ export function cleanNpcLine(value:string):string {
 
 export async function generateLocalNpcLine(
  context:DialogueContext,
- options:{endpoint?:string;model?:string;signal?:AbortSignal;onPartial?:(text:string)=>void}={},
+ options:{endpoint?:string;model?:string;signal?:AbortSignal;onPartial?:(text:string)=>void;onStatus?:(status:string)=>void}={},
 ):Promise<string> {
  const endpoint=options.endpoint??LOCAL_AI_ENDPOINT;
- await checkLocalBridge(endpoint);
+ await checkLocalBridge(endpoint,options.onStatus);
+ options.onStatus?.('IA LOCAL · enviando mensaje al modelo…');
  const controller=new AbortController();
  const abort=()=>controller.abort();
  options.signal?.addEventListener('abort',abort,{once:true});
@@ -84,6 +86,7 @@ export async function generateLocalNpcLine(
   });
   if(!response.ok){let detail='';try{const body=await response.json() as {error?:unknown};if(typeof body.error==='string')detail=': '+body.error;}catch{}throw new Error('El puente local/Ollama respondió '+response.status+detail);}
   if(!response.body)throw new Error('El modelo local no permite streaming');
+  options.onStatus?.('IA LOCAL · esperando respuesta del modelo…');
   const reader=response.body.getReader();
   const decoder=new TextDecoder();
   let buffer='',assembled='',lastPublished='';

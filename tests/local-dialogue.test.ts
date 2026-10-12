@@ -42,8 +42,10 @@ test('consume respuestas NDJSON en streaming y publica parciales',async()=>{
  ];
  const encoder=new TextEncoder();
  const oldFetch=globalThis.fetch;
- globalThis.fetch=async(input)=>{
+ let chatContentType='';
+ globalThis.fetch=async(input,init)=>{
   if(String(input).endsWith('/health'))return new Response(JSON.stringify({ok:true,models:['qwen2.5:3b']}),{status:200,headers:{'Content-Type':'application/json'}});
+  chatContentType=new Headers(init?.headers).get('Content-Type')||'';
   return new Response(new ReadableStream({
    start(controller){for(const chunk of chunks)controller.enqueue(encoder.encode(chunk));controller.close();}
   }),{status:200,headers:{'Content-Type':'application/x-ndjson'}});
@@ -53,6 +55,7 @@ test('consume respuestas NDJSON en streaming y publica parciales',async()=>{
   const partials:string[]=[];
   const result=await generateLocalNpcLine(context,{onPartial:value=>partials.push(value)});
   assert.equal(result,'No confío en vos.');
+  assert.equal(chatContentType,'text/plain;charset=UTF-8');
   assert.deepEqual(partials,['No','No confío en vos.']);
  } finally {globalThis.fetch=oldFetch;}
 });

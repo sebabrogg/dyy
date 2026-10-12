@@ -78,7 +78,7 @@ export async function generateLocalNpcLine(
  const timer=setTimeout(abort,LOCAL_AI_TIMEOUT_MS);
  try {
   const response=await fetch(endpoint,{
-   method:'POST',headers:{'Content-Type':'application/json'},
+   method:'POST',headers:{'Content-Type':'text/plain;charset=UTF-8'},
    body:JSON.stringify({model:options.model??DEFAULT_LOCAL_MODEL,messages:buildDialogueMessages(context),stream:true,keep_alive:'10m',options:{temperature:0.75,num_predict:72,num_ctx:2048}}),
    signal:controller.signal,
   });

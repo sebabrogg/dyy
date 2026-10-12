@@ -182,3 +182,11 @@ body { overflow: hidden !important; }
 .inventory-popup .inventory-item { padding: 8px; border: 1px solid #30383a; background: #1c2224; }
 .inventory-popup .inventory-item small { display: block; margin-top: 4px; color: #77817f; }
 @media (max-width: 900px) { .inventory-popup { position: fixed; left: 12px; right: 12px; bottom: 12px; max-height: 70dvh; } }
+
+/* La tablilla separa estado físico, percepción del entorno y encargos. */
+.subject-tabs { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+.subject-tabs .subject-tab { padding-left: 2px; padding-right: 2px; font-size: 8px; }
+#subject-panel-character { overflow-y: auto; overscroll-behavior: contain; padding-right: 2px; }
+#subject-panel-character .inventory-folder { margin-top: 10px; }
+#subject-panel-character .inventory-popup { bottom: 8px; }
+.subject-tab-panel[hidden] { display: none !important; }

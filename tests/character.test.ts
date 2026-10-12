@@ -4,6 +4,7 @@ import {generateWorld} from '../src/world/generate.ts';
 import {canOfferLifeQuest,makeLifeQuest,questOfferFor} from '../src/core/character.ts';
 import {inspect,selectActor,talk} from '../src/core/engine.ts';
 import {buildDialogueContext} from '../src/ai/local-dialogue.ts';
+import {asksForIdentity,revealsIdentity} from '../src/core/identity.ts';
 
 test('cada NPC recibe biografía, trauma, cognición, matices de personalidad y misión reproducibles',()=>{
   const a=generateWorld(1776),b=generateWorld(1776),c=generateWorld(1777);
@@ -110,3 +111,13 @@ test('el contexto de un NPC puede incluir su entorno observado sin convertirlo e
 });
 
 test('la partida empieza con un conocimiento parcial de identidades, no con amnesia total',()=>{const s=generateWorld(3001);assert.deepEqual(s.actors.map(a=>a.knownToPlayer),[true,true,true,false,false,false,false]);});
+
+
+test('preguntar la identidad no revela a un NPC hasta que la respuesta incluye su nombre real',()=>{
+  assert.equal(asksForIdentity('¿Quién sos?'),true);
+  assert.equal(asksForIdentity('hola, qué hacés'),false);
+  assert.equal(revealsIdentity('¿Quién sos?','Soy yo, ¿qué querés?', 'Mara Venn'),false);
+  assert.equal(revealsIdentity('¿Cómo te llamás?','Me llamo Mara Venn.', 'Mara Venn'),true);
+  assert.equal(revealsIdentity('¿Quién sos?','Mara Venn, la guardia del distrito.', 'Mara Venn'),true);
+  assert.equal(revealsIdentity('¿Quién sos?','Me llamo Ivo Salcedo.', 'Mara Venn'),false);
+});

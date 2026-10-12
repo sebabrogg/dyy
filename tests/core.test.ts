@@ -10,6 +10,12 @@ test('la generación de mundo es reproducible para una misma semilla',()=>{
  assert.deepEqual(a.actors,b.actors);
  assert.notDeepEqual(generateWorld(54321).tiles,a.tiles);
 });
+test('las semillas alteran la estructura de calles y conservan la avenida central',()=>{
+ const layouts=[1,2,3,4,5,6,7,8].map(seed=>generateWorld(seed).tiles.filter(tile=>tile.terrain==='road').map(tile=>tile.x+','+tile.y).join('|'));
+ assert.ok(new Set(layouts).size>1);
+ for(const seed of [1,2,3,4,5,6,7,8]){const world=generateWorld(seed);assert.ok(world.tiles.filter(tile=>tile.y===12).every(tile=>tile.terrain==='road'||tile.x>=13&&tile.x<=19));for(const actor of world.actors)assert.equal(world.tiles[actor.y*world.width+actor.x]!.terrain,'floor');}
+});
+
 test('los streams nombrados no dependen del orden de consumo de otros sistemas',()=>{
  const baseline=stream(99,'actors');const expected=[baseline.nextUint32(),baseline.nextUint32(),baseline.nextUint32()];
  const map=stream(99,'map');for(let i=0;i<100;i++)map.nextUint32();

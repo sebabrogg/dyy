@@ -4,11 +4,11 @@ import {indexOf,type Actor,type Terrain,type Tile,type WorldState} from '../core
 export const WORLD_SEED=0xD1570, WORLD_WIDTH=32, WORLD_HEIGHT=24;
 function carveRoad(tiles:Tile[],y:number,w:number):void{for(let x=0;x<w;x++)tiles[indexOf(x,y,w)]!.terrain='road';}
 export function generateWorld(seed=WORLD_SEED):WorldState{
- const mapRng=stream(seed,'map.terrain'),structureRng=stream(seed,'map.structures'),actorRng=stream(seed,'actors.population'),socialRng=stream(seed,'actors.social');
+ const mapRng=stream(seed,'map.terrain'),layoutRng=stream(seed,'map.layout'),structureRng=stream(seed,'map.structures'),actorRng=stream(seed,'actors.population'),socialRng=stream(seed,'actors.social');
  const width=WORLD_WIDTH,height=WORLD_HEIGHT;
  const tiles:Tile[]=Array.from({length:width*height},(_,i)=>{const x=i%width,y=Math.floor(i/width);const r=mapRng.next();const terrain:Terrain=x===0||y===0||x===width-1||y===height-1?'wall':r<.07?'grass':r<.105?'scrap':'floor';return{x,y,terrain,explored:false};});
- for(const y of [5,12,19])carveRoad(tiles,y,width);for(let y=0;y<height;y++)for(const x of [7,16,25])tiles[indexOf(x,y,width)]!.terrain='road';
- for(let by=2;by<height-2;by+=8)for(let bx=2;bx<width-2;bx+=9){const bw=structureRng.int(3,5),bh=structureRng.int(2,4);for(let y=by;y<Math.min(by+bh,height-1);y++)for(let x=bx;x<Math.min(bx+bw,width-1);x++)if(tiles[indexOf(x,y,width)]!.terrain!=='road')tiles[indexOf(x,y,width)]!.terrain='building';const dx=Math.min(bx+bw-1,width-2),dy=Math.min(by+bh,height-2);if(tiles[indexOf(dx,dy,width)]!.terrain==='building')tiles[indexOf(dx,dy,width)]!.terrain='door';}
+ const roadRows=[layoutRng.int(4,7),12,layoutRng.int(17,20)];for(const y of roadRows)carveRoad(tiles,y,width);const roadColumns=[layoutRng.int(5,9),layoutRng.int(14,18),layoutRng.int(23,27)];for(let y=0;y<height;y++)for(const x of roadColumns)tiles[indexOf(x,y,width)]!.terrain='road';
+ for(let by=2;by<height-2;by+=7)for(let bx=2;bx<width-2;bx+=8){const ox=structureRng.int(0,2),oy=structureRng.int(0,2),x0=Math.min(bx+ox,width-3),y0=Math.min(by+oy,height-3),bw=structureRng.int(2,4),bh=structureRng.int(2,4);for(let y=y0;y<Math.min(y0+bh,height-1);y++)for(let x=x0;x<Math.min(x0+bw,width-1);x++)if(tiles[indexOf(x,y,width)]!.terrain!=='road')tiles[indexOf(x,y,width)]!.terrain='building';const dx=Math.min(x0+bw-1,width-2),dy=Math.min(y0+bh-1,height-2);if(tiles[indexOf(dx,dy,width)]!.terrain==='building')tiles[indexOf(dx,dy,width)]!.terrain='door';}
  for(let y=9;y<=15;y++)for(let x=13;x<=19;x++)tiles[indexOf(x,y,width)]!.terrain='floor';for(let x=0;x<=16;x++)tiles[indexOf(x,12,width)]!.terrain='road';
  const roles=[
  ['Mara Venn','♜','UAC','wary','guardia de distrito','controlar el acceso','#df795d',19,11],

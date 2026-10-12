@@ -59,6 +59,20 @@ export function inspect(s:WorldState):void{
  const t=s.selectedTile?tileAt(s,s.selectedTile.x,s.selectedTile.y):tileAt(s,s.player.x,s.player.y);
  addLog(s,t?({road:'La calle está gastada por botas y vehículos de carga.',building:'Una estructura industrial bloquea el paso.',door:'Una puerta reforzada. No sabes qué hay detrás.',scrap:'Restos de maquinaria abandonada.',grass:'Vegetación enferma crece entre el hormigón.',wall:'Un muro de contención.',water:'Agua oscura y contaminada.',floor:'Hormigón húmedo, grietas y marcas de arrastre.'}[t.terrain]):'No hay nada que observar.','action');
 }
+function respondToIntent(text:string,name:string,disposition:Actor['disposition']):string{
+ const t=text.toLocaleLowerCase('es').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
+ const guarded=disposition==='wary'||disposition==='hostile';
+ if(/\b(ayuda|ayudame|necesito ayuda|me das una mano|echame una mano)\b/.test(t))return guarded?'No voy a meterme en tus problemas. Ni siquiera sé quién sos.':'¿Qué necesitás? Sé concreto. No tengo tiempo para perder.';
+ if(/\b(como estas|como andas|que tal estas|todo bien|como va)\b/.test(t))return guarded?'¿Y a vos qué te importa?':'He tenido días peores. Aunque todavía no terminó este.';
+ if(/\b(hola|buenas|buen dia|buenas tardes|buenas noches|saludos)\b/.test(t))return guarded?'No hace falta que nos saludemos.':'Buenas. Si venís por algo, hablá.';
+ if(/\b(gracias|te agradezco|se agradece)\b/.test(t))return guarded?'No lo hice por vos.':'No hay de qué. No lo conviertas en costumbre.';
+ if(/\b(quien sos|como te llamas|tu nombre)\b/.test(t))return guarded?'No comparto mis datos con desconocidos.':'Me llamo '+name+'. Con eso alcanza por ahora.';
+ if(/\b(que paso|que sucede|que ocurre|que esta pasando|que haces)\b/.test(t))return guarded?'No es asunto tuyo.':'Sobrevivir al turno. Como todo el mundo por acá.';
+ if(/\b(puedo|podrias|podemos|queria|quisiera|necesito|busco)\b/.test(t))return guarded?'No prometo nada. Decí qué querés, rápido.':'Depende de qué estés buscando. Explicámelo mejor.';
+ if(guarded)return 'No te conozco lo suficiente para hablar de eso.';
+ return 'No sé qué querés que te diga. ¿Podés ser más claro?';
+}
+
 export function talk(s:WorldState,text?:string):void{
  const a=s.selectedActorId?s.actors.find(v=>v.id===s.selectedActorId):undefined;
  if(!a||!canSee(s,a)){addLog(s,'No tienes a nadie seleccionado que pueda oírte.','warning');return;}
@@ -82,8 +96,8 @@ export function talk(s:WorldState,text?:string):void{
  else if(event?.kind==='threat')response=r.fear>50?'No te acerques. Te estoy avisando.':'Amenazame otra vez y vas a ver.';
  else if(event?.kind==='apology')response=r.resentment>=35?'No alcanza con decirlo. Todavía me acuerdo de lo que hiciste.':'Te escuché. Eso no significa que esté todo arreglado.';
  else if(r.hostility>=75||r.resentment>=82)response='No tengo nada que hablar con vos. Andate.';
- else if(r.trust<20)response='No confío en vos. Decí lo que tengas que decir.';
- else response=({helpful:'No hables tan alto. Aquí las paredes tienen nómina.',neutral:'Depende de quién pregunte y de quién esté escuchando.',wary:'No te conozco. Mantén las manos donde pueda verlas.',hostile:'No estás autorizado a estar aquí.'}[a.disposition]??'No tengo nada que decirte');
+ else if(r.trust<20)response=respondToIntent(text??'',a.name,a.disposition);
+ else response=respondToIntent(text??'',a.name,a.disposition);
  addLog(s,a.name+': «'+response+'»','dialogue');
 }
 export function selectActor(s:WorldState,id:string):void{const a=s.actors.find(v=>v.id===id);if(a&&canSee(s,a)){s.selectedActorId=id;s.selectedTile={x:a.x,y:a.y};}}

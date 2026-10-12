@@ -12,7 +12,7 @@ const asksPatterns = [
   /\b(?:que|qué)\s+(?:necesitas|precisas|queres que haga|quieres que haga)\b/,
 ];
 const helpPatterns = [
-  /\b(?:te ayudo|te puedo ayudar|puedo ayudarte|queres que te ayude|quieres que te ayude|queres una mano|quieres una mano|te doy una mano|cuenta conmigo|necesitas ayuda|precisas ayuda|necesitas que te ayude|te puedo dar una mano)\b/,
+  /\b(?:te ayudo(?: con eso| con ello)?|te puedo ayudar|puedo ayudarte|queres que te ayude|quieres que te ayude|queres una mano|quieres una mano|te doy una mano|cuenta conmigo|necesitas ayuda|precisas ayuda|necesitas que te ayude|te puedo dar una mano)\b/,
 ];
 
 export function classifyWorkIntent(text: string): WorkIntent {

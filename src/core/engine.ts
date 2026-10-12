@@ -2,7 +2,7 @@ import {stream} from './rng.ts';
 import {distance,indexOf,type Actor,type LogEntry,type WorldState} from './types.ts';
 import {ageSocialMemories,classifyUtterance,recordSocialEvent,recordObservedSocialEvent,shareSocialRumor,relationshipTo,shouldAttack} from './social.ts';
 import {decideNpcBehavior,intentForSocialEvent,recentThreatCount} from './ai-matrix.ts';
-import {questOfferFor} from './character.ts';
+import {makeLifeQuest,questOfferFor} from './character.ts';
 import {classifyWorkIntent} from './quest-intent.ts';
 const WALKABLE=new Set(['floor','road','scrap','grass','door']);
 const DIRECTIONS=[[1,0],[-1,0],[0,1],[0,-1]] as const;
@@ -154,7 +154,7 @@ export function talk(s:WorldState,text?:string,options:{suppressDialogue?:boolea
  }
  if(text?.trim()&&!event)recordSocialEvent(a,{kind:'conversation',targetId:'player',tick:s.tick,severity:8,description:'El jugador me dijo: «'+text.trim().slice(0,240)+'»',interpretation:'interacción recordada'});const rememberedPlace=(s.locations??[]).filter(place=>place.knownByActorIds.includes(a.id)).sort((left,right)=>Math.hypot(left.x-a.x,left.y-a.y)-Math.hypot(right.x-a.x,right.y-a.y))[0];if(rememberedPlace&&Math.hypot(rememberedPlace.x-a.x,rememberedPlace.y-a.y)<=5){(a.social.placeMemories??=[]).push({placeId:rememberedPlace.id,tick:s.tick,salience:24,description:'Habló con el jugador cerca de '+rememberedPlace.name+'.'});if(a.social.placeMemories.length>80)a.social.placeMemories.splice(0,a.social.placeMemories.length-80);}
  const offered=s.quests.find(q=>q.giverId===a.id&&q.status==='offered');
- if(/\b(acepto|aceptar|acepto el encargo|me encargo|lo hare|lo hago)\b/.test(clean)){
+ if(/\b(acepto|aceptar|lo acepto|acepto el encargo|me encargo|lo hare|lo hago|ese es mi encargo|entonces ese es mi encargo|perfecto entonces ese es mi encargo)\b/.test(clean)){
   if(offered){const worldMinute=Math.floor((s.elapsedWorldMs??0)/60000);offered.status='accepted';offered.acceptedAtTick=s.tick;offered.acceptedAtWorldMinute=worldMinute;offered.offeredAtWorldMinute=offered.offeredAtWorldMinute??worldMinute;const urgency=(a.goal+' '+a.lifeMission.motivation+' '+a.lifeMission.description+' '+a.personality).toLocaleLowerCase('es');const factor=/urgente|inmediato|peligro|amenaza|huir|escasez/.test(urgency)?0.45:/paciente|a largo plazo|reconstruir|aprender/.test(urgency)?1.8:1;const socialFactor=Math.max(0.7,Math.min(1.4,1+(a.social.traits.reactivity-50)/180));const hours=Math.max(2,Math.round((24+offered.requirements.length*8)*factor*socialFactor));offered.deadlineWorldMinute=worldMinute+hours*60;offered.deadlineTick=Number.MAX_SAFE_INTEGER;addLog(s,'Aceptaste el encargo de '+a.name+': '+offered.title+'. Plazo: '+Math.floor((offered.deadlineWorldMinute-worldMinute)/1440)+' días de tiempo del mundo. Objetivo actual: '+offered.objective+'.','event');tickWorld(s);return;}
   addLog(s,a.name+' no te ha ofrecido ningún encargo que puedas aceptar.','warning');return;
  }
@@ -182,7 +182,12 @@ export function talk(s:WorldState,text?:string,options:{suppressDialogue?:boolea
  else response=respondToIntent(text??'',a.name,a.disposition);
  if(!options.suppressDialogue)addLog(s,a.name+': «'+response+'»','dialogue');
  if(asksForWork&&!['insult','threat'].includes(event?.kind??'')){
-  const quest=questOfferFor(s,a);
+  let quest=questOfferFor(s,a);
+  // Offering help is not the same as asking a stranger for work: if the NPC has an
+  // active personal mission and is not hostile, create a concrete proposal to accept.
+  if(!quest&&workIntent==='offer_help'&&a.alive&&a.lifeMission.status==='active'&&a.social.relationships.player.hostility<60&&a.social.relationships.player.resentment<70&&!s.quests.some(q=>q.giverId===a.id&&q.missionId===a.lifeMission.id&&(q.status==='offered'||q.status==='accepted'))){
+   quest=makeLifeQuest(a,s.tick);
+  }
   if(quest){s.quests.push(quest);addLog(s,a.name+' te propone un encargo: '+quest.title+'. '+quest.description,'dialogue');}
   else addLog(s,a.name+' no te confía ningún encargo por ahora.','world');
  }

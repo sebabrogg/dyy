@@ -86,3 +86,22 @@ test('el plazo de un encargo aceptado depende del reloj del mundo, no de los tur
  waitTurn(s);
  assert.equal(s.quests[0]!.status,'failed','el encargo debe fracasar al superar su minuto límite aunque no se hayan acumulado turnos equivalentes');
 });
+
+test('ofrecer ayuda crea un encargo aceptable y aceptar no lo duplica',()=>{
+ const s=generateWorld(903),giver=s.actors[0]!;
+ giver.social.relationships.player!.trust=0;
+ giver.social.relationships.player!.respect=0;
+ giver.social.relationships.player!.affection=0;
+ giver.social.relationships.player!.hostility=0;
+ giver.social.relationships.player!.resentment=0;
+ s.player.x=giver.x+1;s.player.y=giver.y;
+ selectActor(s,giver.id);
+ talk(s,'Te ayudo con eso');
+ const offered=s.quests.filter(q=>q.giverId===giver.id&&q.status==='offered');
+ assert.equal(offered.length,1);
+ talk(s,'Perfecto, entonces ese es mi encargo');
+ assert.equal(s.quests.filter(q=>q.giverId===giver.id&&q.status==='accepted').length,1);
+ talk(s,'Acepto');
+ assert.equal(s.quests.filter(q=>q.giverId===giver.id).length,1);
+ assert.equal(s.quests.find(q=>q.giverId===giver.id)!.status,'accepted');
+});

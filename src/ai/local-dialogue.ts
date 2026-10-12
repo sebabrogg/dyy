@@ -3,7 +3,7 @@ import type {Actor,LogEntry} from '../core/types.ts';
 export const LOCAL_AI_ENDPOINT='http://127.0.0.1:11435/api/chat';
 export const OPENCODE_AI_ENDPOINT='http://127.0.0.1:11436/api/chat';
 export const DEFAULT_LOCAL_MODEL='qwen2.5:3b';
-export function resolveAiProvider(search:string):'ollama'|'opencode'{return new URLSearchParams(search).get('ai')==='opencode'?'opencode':'ollama';}
+export function resolveAiProvider(_search:string):'opencode'{return 'opencode';}
 
 export const LOCAL_AI_TIMEOUT_MS=120000;
 export const LOCAL_AI_HEALTH_TIMEOUT_MS=4000;
@@ -13,7 +13,7 @@ async function checkLocalBridge(endpoint:string,onStatus?:(status:string)=>void,
  let timer:ReturnType<typeof setTimeout>|undefined;
  const timeout=new Promise<never>((_,reject)=>{timer=setTimeout(()=>reject(new Error('DIAGNÓSTICO: el puente local no respondió en 4 segundos. Abrí '+healthUrl+' en otra pestaña.')),LOCAL_AI_HEALTH_TIMEOUT_MS);});
  try {
-  onStatus?.(provider==='opencode'?'IA EXPERIMENTAL · comprobando OpenCode en la PC…':'IA LOCAL · comprobando puente de la PC…');
+  onStatus?.(provider==='opencode'?'IA OPENCODE · comprobando el servidor de la PC…':'IA LOCAL · comprobando puente de la PC…');
   const response=await Promise.race([fetch(healthUrl,{method:'GET',cache:'no-store'}),timeout]);
   if(!response.ok)throw new Error('DIAGNÓSTICO: el puente local responde, pero el proveedor no está disponible. Revisá '+healthUrl+'.');
   const health=await Promise.race([response.json() as Promise<{ok?:boolean;models?:string[];error?:string}>,timeout]);
@@ -99,7 +99,7 @@ export async function generateLocalNpcLine(
  const provider=resolveAiProvider(typeof window!=='undefined'?window.location.search:'');
  const endpoint=options.endpoint??(provider==='opencode'?OPENCODE_AI_ENDPOINT:LOCAL_AI_ENDPOINT);
  await checkLocalBridge(endpoint,options.onStatus,provider);
- options.onStatus?.(provider==='opencode'?'IA EXPERIMENTAL · enviando mensaje a OpenCode…':'IA LOCAL · enviando mensaje al modelo…');
+ options.onStatus?.(provider==='opencode'?'IA OPENCODE · enviando mensaje…':'IA LOCAL · enviando mensaje al modelo…');
  const controller=new AbortController();
  let timedOut=false;
  const abort=()=>controller.abort();
@@ -113,7 +113,7 @@ export async function generateLocalNpcLine(
   });
   if(!response.ok){let detail='';try{const body=await response.json() as {error?:unknown};if(typeof body.error==='string')detail=': '+body.error;}catch{}throw new Error('El puente local/'+(provider==='opencode'?'OpenCode':'Ollama')+' respondió '+response.status+detail);}
   if(!response.body)throw new Error('El modelo local no permite streaming');
-  options.onStatus?.(provider==='opencode'?'IA EXPERIMENTAL · esperando respuesta de OpenCode…':'IA LOCAL · esperando respuesta del modelo…');
+  options.onStatus?.(provider==='opencode'?'IA OPENCODE · esperando respuesta…':'IA LOCAL · esperando respuesta del modelo…');
   const reader=response.body.getReader();
   const decoder=new TextDecoder();
   let buffer='',assembled='',lastPublished='',modelDone=false;

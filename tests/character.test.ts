@@ -123,4 +123,4 @@ test('preguntar la identidad no revela a un NPC hasta que la respuesta incluye s
   assert.equal(revealsIdentity('¿Quién sos?','Me llamo Ivo Salcedo.', 'Mara Venn'),false);
 });
 
-test('OpenCode es una opción de prueba y Ollama sigue siendo el proveedor por defecto',()=>{assert.equal(resolveAiProvider(''), 'ollama');assert.equal(resolveAiProvider('?ai=opencode'),'opencode');assert.equal(resolveAiProvider('?ai=unknown'),'ollama');});
+test('OpenCode es el proveedor permanente independientemente de la URL',()=>{assert.equal(resolveAiProvider(''), 'opencode');assert.equal(resolveAiProvider('?ai=opencode'),'opencode');assert.equal(resolveAiProvider('?ai=ollama'),'opencode');assert.equal(resolveAiProvider('?ai=unknown'),'opencode');});

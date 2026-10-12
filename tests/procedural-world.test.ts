@@ -19,6 +19,6 @@ test('las puertas generadas conectan suelo exterior con un interior transitable'
  }
 });
 
-test('interactuar con una puerta descubre el lugar y no inicia el sueño',()=>{const w=generateWorld(905),place=w.locations![0]!;w.player.x=place.x+1;w.player.y=place.y;w.selectedTile={x:place.x,y:place.y};const before=w.elapsedWorldMs;interactWorld(w);assert.equal(place.discovered,true);assert.equal(w.elapsedWorldMs,before);assert.ok(w.log.some(e=>e.text.includes(place.name)));});
+test('interactuar con una puerta descubre el lugar y no inicia el sueño',()=>{const w=generateWorld(905),place=w.locations![0]!;w.player.x=place.x+1;w.player.y=place.y;w.selectedTile={x:place.x,y:place.y};const before=w.elapsedWorldMs;interactWorld(w);assert.equal(place.discovered,true);assert.equal(w.player.x,place.x,'interactuar debe llevar al jugador a través de la puerta');assert.equal(w.player.y,place.y);assert.equal(w.elapsedWorldMs,before);assert.ok(w.log.some(e=>e.text.includes(place.name)));});
 
 test('cada conversación puede dejar un recuerdo persistente del lugar',()=>{const w=generateWorld(906),place=w.locations![0]!,npc=w.actors.find(a=>place.knownByActorIds.includes(a.id))!;npc.x=place.x+1;npc.y=place.y;w.player.x=place.x+2;w.player.y=place.y;w.selectedActorId=npc.id;talk(w,'¿Qué hacés por acá?');assert.ok(npc.social.placeMemories?.some(memory=>memory.placeId===place.id&&memory.description.includes(place.name)));});

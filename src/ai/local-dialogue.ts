@@ -95,6 +95,7 @@ export function cleanNpcLine(value:string):string {
   .replace(/\*[^*]{1,160}\*/g,' ')
   .replace(/\s+/g,' ').trim()
   .replace(/^[\"'«]+|[\"'»]+$/g,'').trim();
+ if(/\bmodule\s+x\b|we['’]ll\s+we\s+ourselves|[\u4e00-\u9fff]/i.test(cleaned))return '';
  const parts=cleaned.split(/(?<=[.!?])\s+/);
  const unique=parts.filter((part,index)=>parts.findIndex(other=>other.toLocaleLowerCase('es')===part.toLocaleLowerCase('es'))===index);
  return unique.join(' ').replace(/\s+/g,' ').trim().slice(0,320);

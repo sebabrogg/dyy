@@ -1,6 +1,6 @@
 import type {Actor,LogEntry} from '../core/types.ts';
 
-export const LOCAL_AI_ENDPOINT='http://127.0.0.1:11434/api/chat';
+export const LOCAL_AI_ENDPOINT='http://127.0.0.1:11435/api/chat';
 export const DEFAULT_LOCAL_MODEL='qwen2.5:3b';
 export const LOCAL_AI_TIMEOUT_MS=45000;
 
@@ -63,7 +63,7 @@ export async function generateLocalNpcLine(
    body:JSON.stringify({model:options.model??DEFAULT_LOCAL_MODEL,messages:buildDialogueMessages(context),stream:true,keep_alive:'10m',options:{temperature:0.75,num_predict:72,num_ctx:2048}}),
    signal:controller.signal,
   });
-  if(!response.ok)throw new Error('El modelo local respondió '+response.status);
+  if(!response.ok){let detail='';try{const body=await response.json() as {error?:unknown};if(typeof body.error==='string')detail=': '+body.error;}catch{}throw new Error('El puente local/Ollama respondió '+response.status+detail);}
   if(!response.body)throw new Error('El modelo local no permite streaming');
   const reader=response.body.getReader();
   const decoder=new TextDecoder();

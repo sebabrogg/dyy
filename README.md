@@ -34,3 +34,23 @@ Dejá esa terminal abierta y volvé a Dysto en el navegador. El script se descar
 
 ## Límites actuales
 Esto es una primera vertical slice, no el juego completo. No hay servidor multijugador, modelos generativos, persistencia remota ni simulación de población a gran escala. El mapa es generado por semilla y renderizado con canvas; el estado vive en memoria de la sesión.
+
+
+## Probar OpenCode como modelo alternativo (experimental)
+
+La integración de Ollama sigue intacta. Para probar el modelo configurado en OpenCode, primero iniciá su servidor local en la PC:
+
+```bash
+opencode serve --hostname 127.0.0.1 --port 4096
+```
+
+En otra terminal, desde una carpeta donde hayas descargado el puente de Dysto, ejecutá:
+
+```bash
+curl -fL https://sb-5hj233f78g7w.vercel.run/dysto-opencode-bridge.mjs -o dysto-opencode-bridge.mjs
+node dysto-opencode-bridge.mjs
+```
+
+Abrí Dysto con `?ai=opencode` al final de la URL para usar OpenCode solo en esa pestaña: `https://sb-5hj233f78g7w.vercel.run/?ai=opencode`. La URL normal sigue usando Ollama. La primera petición puede requerir permitir el acceso a la red local en el navegador. El puente no habilita herramientas para el modelo; solo toma texto de entrada y devuelve texto de respuesta.
+
+Si protegés el servidor con `OPENCODE_SERVER_PASSWORD`, definí la misma variable en la terminal del puente. Para una dirección o puerto distintos, configurá `DYSTO_OPENCODE_URL` y `DYSTO_OPENCODE_BRIDGE_PORT`.

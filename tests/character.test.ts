@@ -5,6 +5,7 @@ import {canOfferLifeQuest,makeLifeQuest,questOfferFor} from '../src/core/charact
 import {inspect,selectActor,talk} from '../src/core/engine.ts';
 import {buildDialogueContext} from '../src/ai/local-dialogue.ts';
 import {asksForIdentity,revealsIdentity} from '../src/core/identity.ts';
+import {resolveAiProvider} from '../src/ai/local-dialogue.ts';
 
 test('cada NPC recibe biografía, trauma, cognición, matices de personalidad y misión reproducibles',()=>{
   const a=generateWorld(1776),b=generateWorld(1776),c=generateWorld(1777);
@@ -121,3 +122,5 @@ test('preguntar la identidad no revela a un NPC hasta que la respuesta incluye s
   assert.equal(revealsIdentity('¿Quién sos?','Mara Venn, la guardia del distrito.', 'Mara Venn'),true);
   assert.equal(revealsIdentity('¿Quién sos?','Me llamo Ivo Salcedo.', 'Mara Venn'),false);
 });
+
+test('OpenCode es una opción de prueba y Ollama sigue siendo el proveedor por defecto',()=>{assert.equal(resolveAiProvider(''), 'ollama');assert.equal(resolveAiProvider('?ai=opencode'),'opencode');assert.equal(resolveAiProvider('?ai=unknown'),'ollama');});

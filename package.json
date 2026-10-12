@@ -7,7 +7,8 @@
     "dev": "vite --host 0.0.0.0",
     "ai:bridge": "node scripts/dysto-ollama-bridge.mjs",
     "build": "tsc -b && vite build",
-    "test": "node --experimental-strip-types --test tests/*.test.ts"
+    "test": "node --experimental-strip-types --test tests/*.test.ts",
+    "ai:opencode": "node scripts/dysto-opencode-bridge.mjs"
   },
   "devDependencies": {
     "typescript": "^5.8.3",

@@ -22,6 +22,11 @@ export function drawMap(canvas:HTMLCanvasElement,s:WorldState):MapView{
   } else if(t.terrain==='scrap'){ctx.fillStyle='#9ba28c';ctx.fillRect(p.x-2,p.y+tileH*.3,4,2);ctx.fillRect(p.x+2,p.y+tileH*.2,3,2);}
   else if(t.terrain==='grass'){ctx.strokeStyle='#83a58a';ctx.beginPath();ctx.moveTo(p.x,p.y+tileH*.6);ctx.lineTo(p.x-2,p.y);ctx.moveTo(p.x,p.y+tileH*.6);ctx.lineTo(p.x+3,p.y+.5);ctx.stroke();}
  }
+ // Objective markers only exist for locations validated against actual map tiles.
+ for(const q of s.quests.filter(q=>q.status==='accepted'&&q.targetDiscovered&&Number.isInteger(q.targetX)&&Number.isInteger(q.targetY))){
+  const tile=tileAt(s,q.targetX!,q.targetY!);if(!tile||!(tile.terrain==='scrap'||tile.terrain==='building'||tile.terrain==='door'||tile.terrain==='road'))continue;
+  const p=center(tile.x,tile.y);ctx.save();ctx.globalAlpha=.92;ctx.strokeStyle='#e5bd70';ctx.fillStyle='#e5bd70';ctx.lineWidth=2;ctx.beginPath();ctx.arc(p.x,p.y+tileH*.38,Math.max(5,tileW*.19),0,Math.PI*2);ctx.stroke();ctx.beginPath();ctx.moveTo(p.x-4,p.y+tileH*.38);ctx.lineTo(p.x+4,p.y+tileH*.38);ctx.moveTo(p.x,p.y+tileH*.38-4);ctx.lineTo(p.x,p.y+tileH*.38+4);ctx.stroke();ctx.font='bold 9px monospace';ctx.textAlign='center';ctx.fillText('OBJ',p.x,p.y-tileH*.2);ctx.restore();
+ }
  for(const a of s.actors.filter(a=>canSee(s,a)).sort((a,b)=>(a.x+a.y)-(b.x+b.y))){
   const p=center(a.x,a.y),identified=canIdentifyActor(s,a),fade=identified?1:.48;ctx.beginPath();ctx.ellipse(p.x,p.y+tileH*.48,tileW*.22,tileH*.16,0,0,Math.PI*2);ctx.fillStyle='#0c0f10';ctx.fill();
   ctx.globalAlpha=fade;ctx.fillStyle=identified?a.color:'#879092';ctx.beginPath();ctx.moveTo(p.x-tileW*.12,p.y+tileH*.4);ctx.lineTo(p.x-tileW*.1,p.y+tileH*.06);ctx.lineTo(p.x+tileW*.1,p.y+tileH*.06);ctx.lineTo(p.x+tileW*.14,p.y+tileH*.4);ctx.closePath();ctx.fill();ctx.beginPath();ctx.arc(p.x,p.y-tileH*.02,tileW*.12,0,Math.PI*2);ctx.fill();ctx.strokeStyle=s.selectedActorId===a.id?'#f0c878':'#111';ctx.lineWidth=s.selectedActorId===a.id?2:1;ctx.stroke();

@@ -11,7 +11,8 @@ export interface Actor{id:string;name:string;knownToPlayer?:boolean;glyph:string
 export interface Item{id:string;name:string;quantity:number;description:string;}
 export type PlayerAppearance='wanderer'|'hooded'|'masked'|'worker'|'armored';
 export interface Player{x:number;y:number;appearance?:PlayerAppearance;health:number;sanity:number;hunger:number;sleepDebtMinutes?:number;inventory:Item[];}
-export interface WorldState{paused?:boolean;elapsedWorldMs?:number;lastClockUpdate?:number;seed:number;width:number;height:number;tiles:Tile[];actors:Actor[];player:Player;tick:number;day:number;minute:number;selectedActorId:string|null;selectedTile:{x:number;y:number}|null;log:LogEntry[];quests:NpcQuest[];running:boolean;}
+export interface WorldLocation{id:string;name:string;kind:string;x:number;y:number;discovered:boolean;knownByActorIds:string[];}
+export interface WorldState{paused?:boolean;elapsedWorldMs?:number;lastClockUpdate?:number;seed:number;width:number;height:number;tiles:Tile[];locations?:WorldLocation[];actors:Actor[];player:Player;tick:number;day:number;minute:number;selectedActorId:string|null;selectedTile:{x:number;y:number}|null;log:LogEntry[];quests:NpcQuest[];running:boolean;}
 export interface LogEntry{tick:number;text:string;kind:'world'|'action'|'warning'|'dialogue'|'perception'|'feeling'|'event'|'danger';actorId?:string;}
 export const indexOf=(x:number,y:number,width:number)=>y*width+x;
 export const distance=(a:{x:number;y:number},b:{x:number;y:number})=>Math.hypot(a.x-b.x,a.y-b.y);

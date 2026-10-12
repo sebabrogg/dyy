@@ -1,6 +1,6 @@
 import {stream} from '../core/rng.ts';
 import {generateLifeMission,generateNpcMind} from '../core/character.ts';
-import {indexOf,type Actor,type Terrain,type Tile,type WorldState} from '../core/types.ts';
+import {indexOf,type Actor,type Terrain,type Tile,type WorldState,type WorldLocation} from '../core/types.ts';
 export const WORLD_SEED=0xD1570, WORLD_WIDTH=32, WORLD_HEIGHT=24;
 function carveRoad(tiles:Tile[],y:number,w:number):void{for(let x=0;x<w;x++)tiles[indexOf(x,y,w)]!.terrain='road';}
 export function generateWorld(seed=WORLD_SEED):WorldState{
@@ -25,10 +25,14 @@ export function generateWorld(seed=WORLD_SEED):WorldState{
   memories:[],knowledge:[],contacts:{},reputation:{},
   relationships:{player:{affection:0,trust,respect:25,resentment:0,fear:0,debt:0,hostility:r[3]==='hostile'?45:r[3]==='wary'?15:0}},lastAgedTick:0
  }});});
+ const locationNames=[['Clínica de campaña','salud'],['Depósito de suministros','almacén'],['Taller de reparación','taller'],['Puesto de vigilancia','seguridad'],['Refugio de desplazados','refugio'],['Mercado de raciones','comercio'],['Estación de bombeo','infraestructura'],['Puesto de comunicaciones','comunicaciones'],['Viviendas obreras','vivienda'],['Laboratorio clausurado','laboratorio'],['Comedor colectivo','comedor'],['Garaje de mantenimiento','garaje']];
+ const locationTiles=tiles.filter(tile=>tile.terrain==='door').sort((a,b)=>a.y-b.y||a.x-b.x);
+ const locations:WorldLocation[]=locationTiles.map((tile,i)=>{const [name,kind]=locationNames[i%locationNames.length]!;return{id:'location-'+String(i+1).padStart(2,'0'),name,kind,x:tile.x,y:tile.y,discovered:Math.max(Math.abs(tile.x-15),Math.abs(tile.y-12))<=4,knownByActorIds:[]};});
+ for(const location of locations)location.knownByActorIds=actors.filter(actor=>Math.max(Math.abs(actor.x-location.x),Math.abs(actor.y-location.y))<=9).map(actor=>actor.id);
  for(let i=0;i<actors.length;i++)for(let j=i+1;j<actors.length;j++){
   const a=actors[i]!,b=actors[j]!,d=Math.hypot(a.x-b.x,a.y-b.y);
   const connected=d<=10&&(a.faction===b.faction||socialRng.next()<.28);
   if(connected){const strength=socialRng.int(35,85);a.social.contacts[b.id]=strength;b.social.contacts[a.id]=strength;}
  }
- return{paused:false,elapsedWorldMs:0,lastClockUpdate:Date.now(),seed,width,height,tiles,actors,player:{x:15,y:12,health:82,sanity:74,hunger:21,sleepDebtMinutes:0,inventory:[{id:'water',name:'Agua recuperada',quantity:1,description:'Agua filtrada con un regusto metálico.'},{id:'scrap',name:'Chatarra útil',quantity:3,description:'Piezas que todavía podrían servir.'},{id:'ration',name:'Ración comprimida',quantity:1,description:'Alimento barato y difícil de tragar.'}]},tick:0,day:1,minute:360,selectedActorId:null,selectedTile:null,log:[],quests:[],running:true};
+ return{paused:false,elapsedWorldMs:0,lastClockUpdate:Date.now(),seed,width,height,tiles,locations,actors,player:{x:15,y:12,health:82,sanity:74,hunger:21,sleepDebtMinutes:0,inventory:[{id:'water',name:'Agua recuperada',quantity:1,description:'Agua filtrada con un regusto metálico.'},{id:'scrap',name:'Chatarra útil',quantity:3,description:'Piezas que todavía podrían servir.'},{id:'ration',name:'Ración comprimida',quantity:1,description:'Alimento barato y difícil de tragar.'}]},tick:0,day:1,minute:360,selectedActorId:null,selectedTile:null,log:[],quests:[],running:true};
 }

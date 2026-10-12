@@ -16,3 +16,19 @@
 
 /* Conversación estructurada por interlocutor, no una transcripción indiferenciada. */
 .dialogue-feed{gap:8px;padding:8px;background:#101415;border:1px solid #303638;margin-bottom:10px}.dialogue-card{padding:9px 10px;border-left:2px solid #68736f;background:#171c1d;display:flex;flex-direction:column;gap:5px}.dialogue-card.player-line{border-left-color:#9d8559;background:#1a1a16}.dialogue-card.npc-line{border-left-color:#6e9caa}.dialogue-meta{display:flex;justify-content:space-between;align-items:center;gap:8px}.dialogue-category{font-size:8px;letter-spacing:.12em;font-weight:700;color:#bca575}.npc-line .dialogue-category{color:#8eb8c5}.dialogue-meta small{font-size:9px;color:#74807b}.dialogue-speaker{font-size:10px;color:#d3d5ce;letter-spacing:.04em}.dialogue-card p{margin:0;font-size:11px;line-height:1.5;color:#c1c7c1;overflow-wrap:anywhere}.log-entry.dialogue{display:none}
+
+
+/* La conversación pertenece al espacio de juego, debajo del mapa. */
+.world-column{gap:0;min-width:0}
+.map-frame{height:clamp(330px,48vh,620px);min-height:330px}
+.conversation-dock{margin-top:10px;padding:12px;background:#151a1c;border:1px solid #30383a;display:flex;flex-direction:column;min-width:0;gap:8px}
+.conversation-heading{display:flex;justify-content:space-between;align-items:center;gap:12px;border-bottom:1px solid #303638;padding-bottom:8px}
+.conversation-heading .section-label{margin:0}
+#conversation-target{font-size:8px;letter-spacing:.1em;color:#77817f;text-align:right}
+.conversation-dock .dialogue-feed{display:flex;flex-direction:column;gap:8px;max-height:230px;overflow:auto;margin:0;padding:8px;scroll-behavior:smooth}
+.conversation-input .say-form{margin:0}
+.conversation-input .say-form>div{display:flex;gap:8px}
+.conversation-input .say-form input{flex:1;min-width:0}
+.conversation-input .ai-status{margin:7px 0 0;overflow-wrap:anywhere}
+@media(max-width:900px){.map-frame{height:48vh;min-height:290px}.conversation-dock .dialogue-feed{max-height:200px}.conversation-heading{align-items:flex-start;flex-direction:column;gap:5px}#conversation-target{text-align:left}}
+@media(max-width:560px){.map-frame{height:42vh;min-height:250px}.conversation-dock{padding:9px}.conversation-dock .dialogue-feed{max-height:180px}.dialogue-card{padding:8px}.conversation-input .say-form>div{gap:5px}}

@@ -2,7 +2,7 @@ import type {Actor,LogEntry} from '../core/types.ts';
 
 export const LOCAL_AI_ENDPOINT='http://127.0.0.1:11435/api/chat';
 export const DEFAULT_LOCAL_MODEL='qwen2.5:3b';
-export const LOCAL_AI_TIMEOUT_MS=45000;
+export const LOCAL_AI_TIMEOUT_MS=120000;
 export const LOCAL_AI_HEALTH_TIMEOUT_MS=4000;
 
 async function checkLocalBridge(endpoint:string,onStatus?:(status:string)=>void):Promise<void> {
@@ -94,9 +94,10 @@ export async function generateLocalNpcLine(
  await checkLocalBridge(endpoint,options.onStatus);
  options.onStatus?.('IA LOCAL · enviando mensaje al modelo…');
  const controller=new AbortController();
+ let timedOut=false;
  const abort=()=>controller.abort();
  options.signal?.addEventListener('abort',abort,{once:true});
- const timer=setTimeout(abort,LOCAL_AI_TIMEOUT_MS);
+ const timer=setTimeout(()=>{timedOut=true;abort();},LOCAL_AI_TIMEOUT_MS);
  try {
   const response=await fetch(endpoint,{
    method:'POST',headers:{'Content-Type':'text/plain;charset=UTF-8'},
@@ -136,6 +137,9 @@ export async function generateLocalNpcLine(
   if(!line)throw new Error('El modelo local devolvió una respuesta vacía');
   if(line!==lastPublished)options.onPartial?.(line);
   return line;
+ } catch(error) {
+  if(timedOut)throw new Error('Ollama no generó una respuesta en 120 segundos. Revisá la carga de la PC y el puente local; el modelo puede estar tardando en arrancar.');
+  throw error;
  } finally {
   clearTimeout(timer);options.signal?.removeEventListener('abort',abort);
  }

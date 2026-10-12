@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {generateWorld} from '../src/world/generate.ts';
 import {canOfferLifeQuest} from '../src/core/character.ts';
 import {inspect,selectActor,talk} from '../src/core/engine.ts';
+import {buildDialogueContext} from '../src/ai/local-dialogue.ts';
 
 test('cada NPC recibe biografía, trauma, cognición, matices de personalidad y misión reproducibles',()=>{
   const a=generateWorld(1776),b=generateWorld(1776),c=generateWorld(1777);
@@ -70,3 +71,5 @@ test('una oferta directa de ayuda como «te ayudo con eso» activa el sistema de
   assert.equal(s.quests[0]!.status,'offered');
   assert.ok(s.log.some(entry=>entry.text.includes('te propone un encargo')));
 });
+
+test('el recuerdo de una conversación vuelve al contexto individual del NPC',()=>{ const s=generateWorld(991),npc=s.actors.find(a=>a.name==='Ivo Salcedo')!; s.player.x=npc.x+1;s.player.y=npc.y;selectActor(s,npc.id);talk(s,'Te ayudo con eso');const memory=npc.social.memories.find(m=>m.targetId==='player'&&m.kind==='conversation');assert.ok(memory);assert.match(memory!.description,/Te ayudo con eso/);const context=buildDialogueContext(npc,'¿Y entonces?','');assert.ok(context.memories.some(m=>m.includes('Te ayudo con eso')));});

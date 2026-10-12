@@ -15,6 +15,7 @@ test('un insulto deja memoria y aumenta resentimiento, no una penalización efí
  const a=actor();
  recordSocialEvent(a,{kind:'insult',targetId:'player',tick:2,severity:18,description:'me insultó'});
  const r=a.social.relationships.player!;
+ assert.equal(a.social.memories.filter(m=>m.kind==='insult').length,1);
  assert.equal(a.social.memories.length,1);
  assert.equal(a.social.memories[0]!.kind,'insult');
  assert.ok(r.resentment>0);
@@ -85,7 +86,8 @@ test('hablar integra insultos en el motor y una frase amable no reinicia la rela
  const resentmentAfterInsult=relationshipTo(a).resentment;
  assert.ok(resentmentAfterInsult>0);
  talk(world,'Buen día');
- assert.equal(a.social.memories.length,1);
+ assert.equal(a.social.memories.filter(m=>m.kind==='insult').length,1);
+ assert.equal(a.social.memories.filter(m=>m.kind==='conversation').length,2);
  assert.ok(relationshipTo(a).resentment>resentmentAfterInsult-0.01);
 });
 

@@ -85,6 +85,7 @@ export function talk(s:WorldState,text?:string,options:{suppressDialogue?:boolea
  if(!a||!canSee(s,a)){addLog(s,'No tienes a nadie seleccionado que pueda oírte.','warning');return;}
  if(distance(s.player,a)>2){addLog(s,a.name+' está demasiado lejos para conversar. Acércate primero.','warning');return;}
  const clean=(text??'').toLocaleLowerCase('es').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
+ if(text?.trim())recordSocialEvent(a,{kind:'conversation',targetId:'player',tick:s.tick,severity:8,description:'El jugador me dijo: «'+text.trim().slice(0,240)+'»',interpretation:'interacción recordada'});
  const offered=s.quests.find(q=>q.giverId===a.id&&q.status==='offered');
  if(/\b(acepto|aceptar|acepto el encargo|me encargo|lo hare|lo hago)\b/.test(clean)){
   if(offered){offered.status='accepted';offered.acceptedAtTick=s.tick;addLog(s,'Aceptaste el encargo de '+a.name+': '+offered.title+'. Objetivo actual: '+offered.objective+'.','action');tickWorld(s);return;}

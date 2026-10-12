@@ -220,3 +220,5 @@ body { overflow: hidden !important; }
 .perception-world-log .log-entry-meta small{flex:0 0 auto;white-space:nowrap}
 .perception-world-log .log-entry-text{display:block;min-width:0;white-space:normal;overflow-wrap:anywhere;word-break:normal;line-height:1.65}
 @media(max-width:720px){.perception-world-log{height:clamp(240px,42vh,420px);width:100%}.perception-world-log .event-log{min-height:0}}
+
+.inventory-item-title{display:flex;align-items:center;justify-content:space-between;gap:8px}.item-category{display:inline-block;width:max-content;padding:2px 5px;border:1px solid #555f5c;color:#d0aa65;font-size:9px;letter-spacing:.08em}.inventory-item-actions{display:flex;gap:6px;margin-top:7px}.inventory-item-actions button{padding:6px 8px;font-size:9px}.inventory-item-actions button:disabled{opacity:.35;cursor:not-allowed}

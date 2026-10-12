@@ -108,3 +108,5 @@ test('el contexto de un NPC puede incluir su entorno observado sin convertirlo e
   assert.match(context.observedSurroundings,/persona no identificada/);
   assert.ok(context.actorName);
 });
+
+test('la partida empieza con un conocimiento parcial de identidades, no con amnesia total',()=>{const s=generateWorld(3001);assert.deepEqual(s.actors.map(a=>a.knownToPlayer),[true,true,true,false,false,false,false]);});

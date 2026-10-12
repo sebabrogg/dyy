@@ -190,3 +190,6 @@ body { overflow: hidden !important; }
 #subject-panel-character .inventory-folder { margin-top: 10px; }
 #subject-panel-character .inventory-popup { bottom: 8px; }
 .subject-tab-panel[hidden] { display: none !important; }
+
+/* El registro muestra el suceso, no la etiqueta redundante de percepción. */
+.log-entry.perception .log-category{display:none}

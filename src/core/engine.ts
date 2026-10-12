@@ -118,7 +118,21 @@ export function talk(s:WorldState,text?:string,options:{suppressDialogue?:boolea
  if(distance(s.player,a)>2){addLog(s,a.name+' está demasiado lejos para conversar. Acércate primero.','warning');return;}
  const clean=(text??'').toLocaleLowerCase('es').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
  const event=text?classifyUtterance(text):null;
- const reportable=s.quests.filter(q=>q.giverId===a.id&&q.status==='accepted'&&q.objectiveType==='investigate_and_report'&&q.progress>0);
+ const deliveries=s.quests.filter(q=>q.giverId===a.id&&q.status==='accepted'&&q.objectiveType==='deliver_item');
+ if(deliveries.length&&/(te entrego|te traigo|aca tenes|aqui tienes|te doy|toma la chatarra|te dejo)/.test(clean)){
+  const q=deliveries[0]!;
+  const itemId=q.requiredItemId??'scrap';
+  const item=s.player.inventory.find(i=>i.id===itemId&&i.quantity>0);
+  if(!item){addLog(s,'No tienes el recurso necesario para entregárselo.','warning');return;}
+  item.quantity--;q.progress=1;q.evidence='delivered:'+itemId+':'+a.id;q.status='completed';
+  a.lifeMission.progress=Math.min(a.lifeMission.steps.length,a.lifeMission.progress+1);
+  if(a.lifeMission.progress>=a.lifeMission.steps.length)a.lifeMission.status='completed';
+  const rel=a.social.relationships.player;
+  if(rel){rel.trust=Math.min(100,rel.trust+8);rel.respect=Math.min(100,rel.respect+5);rel.debt=Math.min(100,rel.debt+6);}
+  recordSocialEvent(a,{kind:'help',targetId:'player',tick:s.tick,severity:16,description:'El jugador entregó '+item.name+' para el encargo «'+q.title+'».',interpretation:'cumplió una entrega'});
+  addLog(s,'Entregaste '+item.name+' a '+a.name+'. Encargo completado: «'+q.title+'».','action');tickWorld(s);return;
+ }
+ const reportable=s.quests.filter(q=>q.giverId===a.id&&q.status==='accepted'&&['investigate_and_report','collect_scrap','clear_obstacle'].includes(q.objectiveType)&&q.progress>0);
  if(reportable.length&&/(informo|investigue|encontre|volvi|tengo informacion|te cuento|ya investigue|ya volvi|esto es lo que vi)/.test(clean)){
   for(const q of reportable){
    q.status='completed';
@@ -168,6 +182,23 @@ export function talk(s:WorldState,text?:string,options:{suppressDialogue?:boolea
 }
 export function selectActor(s:WorldState,id:string):void{const a=s.actors.find(v=>v.id===id);if(a&&canSee(s,a)){s.selectedActorId=id;s.selectedTile={x:a.x,y:a.y};}}
 export function say(s:WorldState,text:string,options:{suppressDialogue?:boolean}={}):void{const clean=text.trim();if(!clean)return;const a=s.selectedActorId?s.actors.find(v=>v.id===s.selectedActorId):undefined;if(!a||!canSee(s,a)||distance(s.player,a)>2){addLog(s,'Tu voz se pierde entre motores y lluvia. Nadie responde.','action');tickWorld(s);return;}addLog(s,'Tú: «'+clean+'»','dialogue');talk(s,clean,options);}
+export function interactWorld(s:WorldState):void{
+ const tile=s.selectedTile?tileAt(s,s.selectedTile.x,s.selectedTile.y):tileAt(s,s.player.x,s.player.y);
+ if(!tile){addLog(s,'No hay nada con lo que puedas interactuar.','warning');return;}
+ if(tile.terrain!=='scrap'){addLog(s,'No encuentras un recurso recuperable ni un montón de escombros que despejar aquí.','warning');return;}
+ const clearQuest=s.quests.find(q=>q.status==='accepted'&&q.objectiveType==='clear_obstacle'&&q.progress===0);
+ if(clearQuest){
+  tile.terrain='floor';clearQuest.progress=1;clearQuest.evidence='cleared:'+tile.x+','+tile.y;
+  addLog(s,'Despejaste los escombros. El paso queda libre para el encargo «'+clearQuest.title+'».','action');tickWorld(s);return;
+ }
+ const collectQuest=s.quests.find(q=>q.status==='accepted'&&q.objectiveType==='collect_scrap'&&q.progress===0);
+ const item=s.player.inventory.find(i=>i.id==='scrap');
+ if(item)item.quantity++;else s.player.inventory.push({id:'scrap',name:'Chatarra útil',quantity:1,description:'Piezas que todavía podrían servir.'});
+ tile.terrain='floor';
+ if(collectQuest){collectQuest.progress=1;collectQuest.evidence='collected:scrap:'+tile.x+','+tile.y;addLog(s,'Recuperaste una pieza y registraste el recurso para «'+collectQuest.title+'».','action');}
+ else addLog(s,'Recuperaste una pieza de chatarra útil.','action');
+ tickWorld(s);
+}
 export function useItem(s:WorldState):void{
  const ration=s.player.inventory.find(i=>i.id==='ration'&&i.quantity>0);
  if(ration){ration.quantity--;s.player.hunger=Math.max(0,s.player.hunger-28);tickWorld(s);addLog(s,'Consumes una ración comprimida. El sabor es peor que el hambre.','action');return;}

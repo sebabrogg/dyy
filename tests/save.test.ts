@@ -38,4 +38,5 @@ test('migra guardados v1 asignando un plazo a los encargos antiguos sin romper p
  assert.equal(loaded.quests[0]!.objectiveType,'investigate_and_report');
  assert.equal(loaded.quests[0]!.progress,0);
  assert.equal(loaded.quests[0]!.evidence,null);
+ assert.equal(loaded.quests[0]!.requiredItemId,null);
 });

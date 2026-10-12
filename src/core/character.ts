@@ -64,7 +64,12 @@ export function canOfferLifeQuest(actor:Actor):{eligible:boolean;reason:string;u
  if(liking>=43&&rel.trust>=25)return {eligible:true,reason:'se siente suficientemente cómodo contigo',utility,liking};
  return {eligible:false,reason:'todavía no confía en ti ni ve una utilidad clara',utility,liking};
 }
-export function makeLifeQuest(actor:Actor,tick:number):NpcQuest{return {id:'quest-'+actor.id+'-'+actor.lifeMission.id+'-'+actor.lifeMission.progress,giverId:actor.id,missionId:actor.lifeMission.id,title:actor.lifeMission.title,description:actor.lifeMission.description+' Paso actual: '+(actor.lifeMission.steps[Math.min(actor.lifeMission.progress,actor.lifeMission.steps.length-1)]??actor.lifeMission.description)+'.',objective:'Investiga la situación y vuelve con una observación comprobable.',requirements:[...actor.lifeMission.needs],reward:'la recompensa depende de lo que el NPC pueda ofrecer y de cómo termine el asunto',status:'offered',offeredAtTick:tick,acceptedAtTick:null,deadlineTick:tick+120+actor.lifeMission.needs.length*24,objectiveType:'investigate_and_report',progress:0,evidence:null};}
+export function makeLifeQuest(actor:Actor,tick:number):NpcQuest{
+ const objectiveTypes:NpcQuest['objectiveType'][]=['investigate_and_report','collect_scrap','deliver_item','clear_obstacle'];
+ const objectiveType=objectiveTypes[Math.min(actor.lifeMission.progress,objectiveTypes.length-1)]??'investigate_and_report';
+ const objectives={investigate_and_report:'Investiga a alguien o examina el terreno y vuelve a informar.',collect_scrap:'Recupera una pieza de chatarra y vuelve con el recurso.',deliver_item:'Entrégame una pieza de chatarra que puedas conseguir.',clear_obstacle:'Despeja un montón de escombros del paso y avísame.'};
+ return {id:'quest-'+actor.id+'-'+actor.lifeMission.id+'-'+actor.lifeMission.progress,giverId:actor.id,missionId:actor.lifeMission.id,title:actor.lifeMission.title,description:actor.lifeMission.description+' Paso actual: '+(actor.lifeMission.steps[Math.min(actor.lifeMission.progress,actor.lifeMission.steps.length-1)]??actor.lifeMission.description)+'.',objective:objectives[objectiveType],requirements:[...actor.lifeMission.needs],reward:'la recompensa depende de lo que el NPC pueda ofrecer y de cómo termine el asunto',status:'offered',offeredAtTick:tick,acceptedAtTick:null,deadlineTick:tick+120+actor.lifeMission.needs.length*24,objectiveType,progress:0,evidence:null,requiredItemId:objectiveType==='deliver_item'?'scrap':null};
+}
 export function questOfferFor(s:WorldState,actor:Actor):NpcQuest|null{
  const decision=canOfferLifeQuest(actor);if(!decision.eligible)return null;
  if(s.quests.some(q=>q.giverId===actor.id&&q.missionId===actor.lifeMission.id&&(q.status==='offered'||q.status==='accepted')))return null;

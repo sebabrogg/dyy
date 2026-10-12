@@ -1,5 +1,5 @@
 import './style.css';
-import {formatClock,initializeWorld,inspect,moveTo,selectActor,say,tileAt,useItem,visibleActors,waitTurn} from './core/engine.ts';
+import {formatClock,initializeWorld,inspect,interactWorld,moveTo,selectActor,say,tileAt,useItem,visibleActors,waitTurn} from './core/engine.ts';
 import {generateWorld} from './world/generate.ts';
 import {drawMap,tileFromPointer} from './ui/map.ts';
 import type {WorldState} from './core/types.ts';
@@ -48,7 +48,7 @@ window.addEventListener('keydown',e=>{
 });
 document.querySelectorAll<HTMLButtonElement>('[data-action]').forEach(b=>b.addEventListener('click',()=>{
  const action=b.dataset.action;
- if(action==='talk')$<HTMLInputElement>('say-input').focus();else if(action==='inspect')inspect(state);else if(action==='wait')waitTurn(state);else if(action==='use')useItem(state);
+ if(action==='talk')$<HTMLInputElement>('say-input').focus();else if(action==='inspect')inspect(state);else if(action==='wait')waitTurn(state);else if(action==='use')useItem(state);else if(action==='interact')interactWorld(state);
  render();
 }));
 $('save-game').addEventListener('click',()=>{const status=$<HTMLElement>('ai-status');try{localStorage.setItem(SAVE_STORAGE_KEY,encodeSave(state));status.textContent='PARTIDA GUARDADA · recuerdos y relaciones preservados.';}catch(error){status.textContent='ERROR AL GUARDAR · '+(error instanceof Error?error.message:String(error));}});

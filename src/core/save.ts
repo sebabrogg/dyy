@@ -1,6 +1,6 @@
 import type {WorldState} from './types.ts';
 
-export const SAVE_VERSION=3;
+export const SAVE_VERSION=4;
 export const SAVE_STORAGE_KEY='dysto.save.v1';
 export interface SaveEnvelope {version:number;savedAt:string;state:WorldState;}
 
@@ -12,12 +12,13 @@ export function decodeSave(serialized:string):WorldState {
  const parsed:unknown=JSON.parse(serialized);
  if(!parsed||typeof parsed!=='object')throw new Error('El archivo de guardado no es válido.');
  const envelope=parsed as Partial<SaveEnvelope>;
- if(envelope.version!==1&&envelope.version!==2&&envelope.version!==SAVE_VERSION)throw new Error('Versión de guardado incompatible.');
+ if(envelope.version!==1&&envelope.version!==2&&envelope.version!==3&&envelope.version!==SAVE_VERSION)throw new Error('Versión de guardado incompatible.');
  if(!envelope.state||typeof envelope.state!=='object')throw new Error('El guardado no contiene una partida.');
  const state=envelope.state as WorldState;
  if(!Number.isInteger(state.seed)||!Number.isInteger(state.width)||!Number.isInteger(state.height)||!Array.isArray(state.tiles)||!Array.isArray(state.actors)||!Array.isArray(state.quests)||!Array.isArray(state.log)||!state.player||!Array.isArray(state.player.inventory))throw new Error('La estructura de la partida está incompleta.');
  for(const quest of state.quests){
   if(!quest.objectiveType)quest.objectiveType='investigate_and_report';
+  if(!('requiredItemId' in (quest as unknown as Record<string,unknown>)))quest.requiredItemId=quest.objectiveType==='deliver_item'?'scrap':null;
   if(!Number.isFinite(quest.progress))quest.progress=0;
   if(typeof quest.evidence!=='string')quest.evidence=null;
   if(!Number.isFinite(quest.deadlineTick)){

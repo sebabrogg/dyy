@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {generateWorld} from '../src/world/generate.ts';
-import {canOfferLifeQuest,questOfferFor} from '../src/core/character.ts';
+import {canOfferLifeQuest,makeLifeQuest,questOfferFor} from '../src/core/character.ts';
 import {inspect,selectActor,talk} from '../src/core/engine.ts';
 import {buildDialogueContext} from '../src/ai/local-dialogue.ts';
 
@@ -90,6 +90,13 @@ test('una misión personal puede generar el siguiente encargo tras completar el 
  const next=questOfferFor(s,npc);
  assert.ok(next);
  assert.notEqual(next.id,'quest-old');
- assert.match(next.objective,/observación comprobable/);
+ assert.match(next.objective,/Investiga|Recupera|Entrégame|Despeja/);
  assert.match(next.description,/Paso actual/);
+});
+
+test('los pasos de una misión personal generan objetivos de investigación, recursos, entrega y despeje',()=>{
+ const s=generateWorld(907),npc=s.actors[0]!;
+ const expected=new Map([[0,'investigate_and_report'],[1,'collect_scrap'],[2,'deliver_item'],[3,'clear_obstacle']]);
+ for(const [progress,type] of expected){npc.lifeMission.progress=progress;const q=makeLifeQuest(npc,0);assert.equal(q.objectiveType,type);}
+ npc.lifeMission.progress=2;assert.equal(makeLifeQuest(npc,0).requiredItemId,'scrap');
 });

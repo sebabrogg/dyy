@@ -20,3 +20,11 @@ test('la intención se detecta con tildes y las respuestas cambian con la dispos
   assert.match(hostile, /qué te importa/i);
   assert.notEqual(neutral, hostile);
 });
+
+import {classifyUtterance} from '../src/core/social.ts';
+
+test('el clasificador reconoce desafíos y amenazas en español con y sin tildes', () => {
+  for (const phrase of ['mátame si tienes huevos', 'matame si tenes huevos', 'te voy a matar', 'te vas a morir', 'te parto la cara']) {
+    assert.equal(classifyUtterance(phrase)?.kind, 'threat', phrase);
+  }
+});

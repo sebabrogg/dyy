@@ -97,9 +97,9 @@ export function ageSocialMemories(actor:Actor,tick:number):void {
 }
 
 export function classifyUtterance(text:string):{kind:SocialEventKind;severity:number;description:string}|null {
-  const t=text.toLocaleLowerCase('es');
+  const t=text.toLocaleLowerCase('es').normalize('NFD').replace(/[\u0300-\u036f]/g,'');
   if(/\b(perd[oó]n|lo siento|me equivoqu[eé]|fue mi culpa|te pido disculpas|disculpame|disc[uú]lpame)\b/.test(t))return {kind:'apology',severity:10,description:text.trim()};
-  if(/\b(te voy a matar|te mato|te rompo|te voy a hacer|amenaz|vas a pagar|te arrepentir[aá]s)\b/.test(t))return {kind:'threat',severity:16,description:text.trim()};
+  if(/\b(te voy a matar|te mato|te rompo|te voy a hacer|amenaz|vas a pagar|te arrepentiras|matame|matalo|matala|te quiero matar|te pienso matar|te voy a liquidar|te voy a reventar|te hago mierda|te parto la cara|te dejo seco|te vas a morir|morite|muere|muerete|si tienes huevos|si tenes huevos|si tenes cojones)\b/.test(t))return {kind:'threat',severity:16,description:text.trim()};
   if(/\b(traidor|traidora|hijo de puta|hija de puta|imb[eé]cil|idiota|in[uú]til|basura|mierda|cobarde|est[uú]pido|est[uú]pida)\b/.test(t))return {kind:'insult',severity:10,description:text.trim()};
   return null;
 }

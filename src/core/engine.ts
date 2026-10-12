@@ -35,8 +35,7 @@ function resolveQuestConsequences(s:WorldState):void{
 }
 
 function tickWorld(s:WorldState):void{
- s.tick++;s.minute+=5;if(s.minute>=1440){s.minute-=1440;s.day++;}
- const previousHunger=s.player.hunger;s.player.hunger=Math.min(100,s.player.hunger+.25);if(previousHunger<70&&s.player.hunger>=70)addLog(s,'El hambre empieza a distraerte.','feeling');if(previousHunger<90&&s.player.hunger>=90)addLog(s,'El hambre te debilita; cuesta ignorarla.','feeling');
+ s.tick++;
  const rng=stream(s.seed,'npc.ai.tick.'+s.tick);
  for(const a of s.actors.filter(v=>v.alive)){
   ageSocialMemories(a,s.tick);
@@ -61,7 +60,7 @@ function tickWorld(s:WorldState):void{
  }
  refreshVisibility(s);
 }
-function pathTo(s:WorldState,tx:number,ty:number):Array<{x:number;y:number}>{
+export function pathTo(s:WorldState,tx:number,ty:number):Array<{x:number;y:number}>{
  if(!tileAt(s,tx,ty)||!WALKABLE.has(tileAt(s,tx,ty)!.terrain)||occupied(s,tx,ty))return[];
  const start={x:s.player.x,y:s.player.y},key=(p:{x:number;y:number})=>p.x+','+p.y;
  const queue=[start],came=new Map<string,string>();came.set(key(start),'');
@@ -76,6 +75,9 @@ export function moveTo(s:WorldState,x:number,y:number):void{
  for(const p of path){s.player.x=p.x;s.player.y=p.y;tickWorld(s);if(s.player.health<=0)break;}
  s.selectedTile={x,y};s.selectedActorId=null;addLog(s,'Te desplazas hasta el punto indicado.','action');
 }
+export function walkStep(s:WorldState,x:number,y:number):boolean{if(Math.abs(x-s.player.x)+Math.abs(y-s.player.y)!==1||!walkable(s,x,y))return false;s.player.x=x;s.player.y=y;s.selectedTile={x,y};s.selectedActorId=null;refreshVisibility(s);return true;}
+export function advanceWorld(s:WorldState):void{tickWorld(s);const debt=(s.player.sleepDebtMinutes??0)+1;s.player.sleepDebtMinutes=debt;const previousHunger=s.player.hunger;s.player.hunger=Math.min(100,s.player.hunger+.25);if(previousHunger<70&&s.player.hunger>=70)addLog(s,'El hambre empieza a distraerte.','feeling');if(previousHunger<90&&s.player.hunger>=90)addLog(s,'El hambre te debilita; cuesta ignorarla.','feeling');if(debt>720&&debt%30===0)s.player.sanity=Math.max(0,s.player.sanity-1);}
+export function sleep(s:WorldState):void{s.player.sleepDebtMinutes=0;s.player.sanity=Math.min(100,s.player.sanity+12);s.player.hunger=Math.min(100,s.player.hunger+4);addLog(s,"Dormiste y recuperaste parte de la estabilidad mental. El hambre sigue ahí.","feeling");}
 export function waitTurn(s:WorldState):void{tickWorld(s);addLog(s,'Dejas pasar cinco minutos. El barrio sigue funcionando sin pedirte permiso.','action');}
 export function inspect(s:WorldState):void{
  const a=s.selectedActorId?s.actors.find(v=>v.id===s.selectedActorId):undefined;
@@ -207,4 +209,4 @@ export function useItem(s:WorldState):void{
  addLog(s,'No tienes ningún objeto utilizable.','warning');
 }
 export function seedLabel(seed:number):string{return seed.toString(16).toUpperCase().padStart(8,'0');}
-export function formatClock(s:WorldState):string{return'DÍA '+String(s.day).padStart(3,'0')+' · '+String(Math.floor(s.minute/60)).padStart(2,'0')+':'+String(s.minute%60).padStart(2,'0');}
+export function formatClock(s:WorldState):string{const n=new Date();const real=n.getHours()*60+n.getMinutes();const m=(real*2)%1440;s.minute=m;s.day=Math.floor(n.getTime()/86400000)%365+1;const h=Math.floor(m/60),mm=m%60;const phase=h>=6&&h<18?'DÍA':'NOCHE';return 'DÍA '+String(s.day).padStart(3,'0')+' · '+String(h).padStart(2,'0')+':'+String(mm).padStart(2,'0')+' · '+phase;}

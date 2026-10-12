@@ -1,6 +1,6 @@
 import './style.css';
 import {initConversationFolders} from './ui/conversation-folders.ts';
-import {formatClock,initializeWorld,inspect,interactWorld,moveTo,selectActor,say,tileAt,useItem,visibleActors,waitTurn} from './core/engine.ts';
+import {advanceWorld,formatClock,initializeWorld,inspect,interactWorld,pathTo,selectActor,say,sleep,tileAt,useItem,visibleActors,walkStep,waitTurn} from './core/engine.ts';
 import {generateWorld} from './world/generate.ts';
 import {drawMap,tileFromPointer} from './ui/map.ts';
 import type {WorldState} from './core/types.ts';
@@ -10,7 +10,9 @@ import {decodeSave,encodeSave,SAVE_STORAGE_KEY} from './core/save.ts';
 const state:WorldState=generateWorld();
 const $=<T extends HTMLElement>(id:string)=>document.getElementById(id) as T;
 const canvas=$<HTMLCanvasElement>('world-map');
+function escapeHtml(s:string){const d=document.createElement("div");d.textContent=s;return d.innerHTML;}
 let pendingQuestId:string|null=null;
+let walkingTimer:number|null=null;let fatigueNoticeShown=false;
 function openQuestModal(quest:WorldState['quests'][number]){pendingQuestId=quest.id;$<HTMLElement>('quest-modal-title').textContent=quest.title;$<HTMLElement>('quest-modal-description').textContent=quest.description;$<HTMLElement>('quest-modal-objective').textContent=quest.objective;$<HTMLElement>('quest-modal-reward').textContent=quest.reward||'Sin recompensa confirmada';$<HTMLElement>('quest-modal-deadline').textContent='El plazo empieza al aceptar.';$<HTMLElement>('quest-modal').hidden=false;$<HTMLButtonElement>('[data-quest-choice=accept]').focus();}
 function closeQuestModal(){pendingQuestId=null;$<HTMLElement>('quest-modal').hidden=true;}
 
@@ -20,10 +22,12 @@ if(!restoredOnStartup)initializeWorld(state);
 function render(){
  drawMap(canvas,state);
  $('clock').textContent=formatClock(state);$('seed-label').textContent='SEED '+state.seed.toString(16).toUpperCase().padStart(8,'0');
+ document.getElementById("pc-clock")!.textContent="PC "+new Date().toLocaleTimeString("es-UY",{hour:"2-digit",minute:"2-digit"});
  $('tick-count').textContent='T+'+String(state.tick).padStart(3,'0');$('coords').textContent='X: '+state.player.x+' · Y: '+state.player.y;
  $('health-label').textContent=state.player.health+' / 100';$('health-meter').style.width=state.player.health+'%';
  $('sanity-label').textContent=state.player.sanity+' / 100';$('sanity-meter').style.width=state.player.sanity+'%';
  $('hunger-label').textContent=Math.floor(state.player.hunger)+' / 100';$('hunger-meter').style.width=state.player.hunger+'%';
+ const debt=state.player.sleepDebtMinutes??0;document.querySelector("#internal-state")!.textContent=debt>=720?"Estás cansado. Dormir poco afecta tu cordura.":"Sin cansancio notable.";if(debt>=720&&!fatigueNoticeShown){document.querySelector("#fatigue-popup")!.removeAttribute("hidden");fatigueNoticeShown=true;}
  $('inventory-count').textContent=String(state.player.inventory.reduce((n,i)=>n+i.quantity,0)).padStart(2,'0');
  $('inventory').innerHTML=state.player.inventory.filter(i=>i.quantity>0).map(i=>'<div class="inventory-item"><span>'+escapeHtml(i.name)+'</span><b>×'+i.quantity+'</b><small>'+escapeHtml(i.description)+'</small></div>').join('')||'<p class="dim">Sin objetos.</p>';
  $('quest-count').textContent=String(state.quests.filter(q=>q.status==='offered'||q.status==='accepted').length).padStart(2,'0');$('event-log').innerHTML=state.log.map(e=>{const item=presentWorldLog(e);return item?{...e,category:item}:null;}).filter((e):e is NonNullable<typeof e>=>e!==null).slice(-18).reverse().map(e=>'<article class="log-entry '+e.kind+'"><div class="log-entry-meta"><span class="log-category">'+e.category+'</span><small>T+'+String(e.tick).padStart(3,'0')+'</small></div><span class="log-entry-text">'+escapeHtml(e.text)+'</span></article>').join('')||'<p class="dim log-empty">Sin novedades relevantes.</p>';$('event-log').scrollTop=0;$('quest-list').innerHTML=state.quests.filter(q=>q.status==='offered'||q.status==='accepted').map(q=>'<div class=\"quest-card\"><strong>'+escapeHtml(q.title)+'</strong><small>'+escapeHtml(q.status==='offered'?'PROPUESTO':'ACEPTADO')+(q.status==='accepted'?' · PLAZO '+Math.max(0,q.deadlineTick-state.tick)+' TURNOS · EVIDENCIA '+q.progress+'/1':'')+'</small><p>'+escapeHtml(q.objective)+(q.status==='accepted'&&q.progress>0?'<small>EVIDENCIA REGISTRADA. Volvé con el NPC y decile «te cuento lo que vi».</small>':'')+'</p><span>'+escapeHtml(q.description)+'</span></div>').join('')||'<p class=\"dim\">Nadie te ha confiado un encargo.</p>';$('dialogue-feed').innerHTML=state.log.filter(e=>e.kind==='dialogue').map(e=>{const split=e.text.match(/^([^:]+):\s*[«"]([\s\S]*?)[»"]$/);const speaker=split?.[1]??'Interferencia';const player=/^(tú|tu|jugador)$/i.test(speaker);const content=split?.[2]??e.text;return '<article class="dialogue-card '+(player?'player-line':'npc-line')+'"><div class="dialogue-meta"><span class="dialogue-category">'+(player?'TU INTERVENCIÓN':'RESPUESTA DEL NPC')+'</span><small>T+'+String(e.tick).padStart(3,'0')+'</small></div><strong class="dialogue-speaker">'+escapeHtml(speaker)+'</strong><p>'+escapeHtml(content)+'</p></article>';}).join('')||'<p class="dim">Todavía no hay conversación. Selecciona un NPC cercano y escribe abajo.</p>';
@@ -37,7 +41,7 @@ function render(){
 
 function presentWorldLog(entry:WorldState['log'][number]):string|null{
  if(entry.kind==='perception')return 'PERCEPCIÓN';
- if(entry.kind==='feeling')return 'ESTADO INTERNO';
+ if(entry.kind==='feeling')return null;
  if(entry.kind==='event')return 'ENCARGO / CONSECUENCIA';
  if(entry.kind==='danger')return 'PELIGRO';
  if(entry.kind==='dialogue')return null;
@@ -46,17 +50,17 @@ function presentWorldLog(entry:WorldState['log'][number]):string|null{
  if(entry.kind==='world')return null;
  if(/observaci[oó]n|la calle|estructura industrial|puerta reforzada|restos de maquinaria|vegetaci[oó]n enferma|muro de contenci[oó]n|agua estancada|superficie de hormig[oó]n|lluvia [aá]cida|puesto de control/.test(text))return 'PERCEPCIÓN';
  if(/encargo|entregaste|recogiste|recogiste|despejaste|completado|rechazaste|aceptaste/.test(text))return 'ENCARGO / CONSECUENCIA';
- if(/te ataca|te golpea|te hiere|dolor|hambre empieza|hambre te debilita/.test(text))return 'ESTADO INTERNO';
+ if(/te ataca|te golpea|te hiere|dolor|hambre empieza|hambre te debilita/.test(text))return null;
  return null;
 }
-function escapeHtml(s:string){return s.replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]??c));}
-function move(dx:number,dy:number){moveTo(state,state.player.x+dx,state.player.y+dy);render();}
+function move(dx:number,dy:number){if(walkingTimer!==null){clearInterval(walkingTimer);walkingTimer=null;}walkStep(state,state.player.x+dx,state.player.y+dy);render();}
+function walkTo(tile:{x:number;y:number}){if(walkingTimer!==null)clearInterval(walkingTimer);const path=pathTo(state,tile.x,tile.y);let i=0;walkingTimer=window.setInterval(()=>{const next=path[i];if(!next||!walkStep(state,next.x,next.y)){if(walkingTimer!==null)clearInterval(walkingTimer);walkingTimer=null;render();return;}i++;render();},180);}
 canvas.addEventListener('click',e=>{
  const tile=tileFromPointer(canvas,state,e.clientX,e.clientY);if(!tile)return;
  const actor=visibleActors(state).find(a=>a.x===tile.x&&a.y===tile.y);
  if(actor){selectActor(state,actor.id);render();return;}
  state.selectedActorId=null;state.selectedTile=tile;
- if(Math.hypot(tile.x-state.player.x,tile.y-state.player.y)>0)moveTo(state,tile.x,tile.y);
+ if(Math.hypot(tile.x-state.player.x,tile.y-state.player.y)>0)walkTo(tile);
  render();
 });
 window.addEventListener('keydown',e=>{
@@ -68,7 +72,7 @@ window.addEventListener('keydown',e=>{
 });
 document.querySelectorAll<HTMLButtonElement>('[data-action]').forEach(b=>b.addEventListener('click',()=>{
  const action=b.dataset.action;
- if(action==='talk')$<HTMLInputElement>('say-input').focus();else if(action==='inspect')inspect(state);else if(action==='wait')waitTurn(state);else if(action==='use')useItem(state);else if(action==='interact')interactWorld(state);
+ if(action==='talk')$<HTMLInputElement>('say-input').focus();else if(action==='inspect')inspect(state);else if(action==='wait')waitTurn(state);else if(action==='sleep'){sleep(state);fatigueNoticeShown=false;document.querySelector('#fatigue-popup')!.setAttribute('hidden','');}else if(action==='use')useItem(state);else if(action==='interact')interactWorld(state);
  render();
 }));
 $('save-game').addEventListener('click',()=>{const status=$<HTMLElement>('ai-status');try{localStorage.setItem(SAVE_STORAGE_KEY,encodeSave(state));status.textContent='PARTIDA GUARDADA · recuerdos y relaciones preservados.';}catch(error){status.textContent='ERROR AL GUARDAR · '+(error instanceof Error?error.message:String(error));}});
@@ -87,3 +91,5 @@ function setInventoryOpen(open:boolean){$('inventory-popup').hidden=!open;$('inv
 $('inventory-toggle').addEventListener('click',()=>setInventoryOpen($('inventory-popup').hidden));$('inventory-close').addEventListener('click',()=>setInventoryOpen(false));
 window.addEventListener('keydown',event=>{if(event.key==='Escape'&&!$('inventory-popup').hidden)setInventoryOpen(false);});
 initConversationFolders();
+window.setInterval(()=>{advanceWorld(state);render();},30000);
+document.getElementById("fatigue-dismiss")?.addEventListener("click",()=>{document.getElementById("fatigue-popup")!.hidden=true;});

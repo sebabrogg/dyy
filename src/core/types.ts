@@ -9,7 +9,7 @@ export interface SocialKnowledge{eventId:string;subjectId:string;targetId:string
 export interface ActorSocialState{traits:SocialTraits;memories:SocialMemory[];relationships:Record<string,SocialRelationship>;contacts:Record<string,number>;knowledge:SocialKnowledge[];reputation:Record<string,number>;lastAgedTick:number;}
 export interface Actor{id:string;name:string;glyph:string;x:number;y:number;faction:string;disposition:Disposition;personality:string;goal:string;trust:number;alert:number;alive:boolean;color:string;lastSeenPlayerTick:number;social:ActorSocialState;mind:NpcMind;lifeMission:LifeMission;}
 export interface Item{id:string;name:string;quantity:number;description:string;}
-export interface Player{x:number;y:number;health:number;sanity:number;hunger:number;inventory:Item[];}
+export interface Player{x:number;y:number;health:number;sanity:number;hunger:number;sleepDebtMinutes?:number;inventory:Item[];}
 export interface WorldState{seed:number;width:number;height:number;tiles:Tile[];actors:Actor[];player:Player;tick:number;day:number;minute:number;selectedActorId:string|null;selectedTile:{x:number;y:number}|null;log:LogEntry[];quests:NpcQuest[];running:boolean;}
 export interface LogEntry{tick:number;text:string;kind:'world'|'action'|'warning'|'dialogue'|'perception'|'feeling'|'event'|'danger';}
 export const indexOf=(x:number,y:number,width:number)=>y*width+x;

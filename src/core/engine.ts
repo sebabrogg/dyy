@@ -1,6 +1,7 @@
 import {stream} from './rng.ts';
 import {distance,indexOf,type Actor,type LogEntry,type WorldState} from './types.ts';
 import {ageSocialMemories,classifyUtterance,recordSocialEvent,recordObservedSocialEvent,shareSocialRumor,relationshipTo,shouldAttack} from './social.ts';
+import {decideNpcBehavior,intentForSocialEvent,recentThreatCount} from './ai-matrix.ts';
 const WALKABLE=new Set(['floor','road','scrap','grass','door']);
 const DIRECTIONS=[[1,0],[-1,0],[0,1],[0,-1]] as const;
 export function tileAt(s:WorldState,x:number,y:number){return x<0||y<0||x>=s.width||y>=s.height?undefined:s.tiles[indexOf(x,y,s.width)];}
@@ -93,7 +94,7 @@ export function talk(s:WorldState,text?:string):void{
  if(!event&&(priorRelationship.hostility>=55||priorRelationship.resentment>=65)){addLog(s,a.name+' te corta antes de que puedas seguir. No tiene interés en hablar contigo.','warning');tickWorld(s);return;}
  let response:string;
  if(event?.kind==='insult')response=r.hostility>=65?'No te lo voy a olvidar. Sal de mi vista.':'¿Te pensás que podés hablarme así?';
- else if(event?.kind==='threat'){const threats=a.social.memories.filter(m=>m.targetId==='player'&&m.kind==='threat'&&s.tick-m.tick<=24).length;response=r.fear>65?'No te acerques. No pienso arriesgarme con vos.':threats>=3?'Se terminó. Ya me amenazaste demasiadas veces. Aléjate ahora.':threats===2?'La primera te la dejé pasar. Esta no. Un paso más y me defiendo.':r.fear>35?'No te acerques. Te estoy avisando.':'Amenazame otra vez y vas a ver.';}
+ else if(event?.kind==='threat'){const threats=recentThreatCount(a,'player',24,s.tick);const decision=decideNpcBehavior({intent:intentForSocialEvent(event.kind),disposition:a.disposition,traits:a.social.traits,relationship:r,recentThreats:threats});response=decision.behavior==='fearful'?'No te acerques. No pienso arriesgarme con vos.':decision.behavior==='defend'?'Se terminó. Si volvés a amenazarme, me voy a defender.':decision.behavior==='deescalate'?'No quiero problemas. Bajá la voz y alejate.':decision.behavior==='refuse'?'No voy a seguir hablando con alguien que me amenaza.':threats>=2?'Ya te escuché. No vuelvas a amenazarme.':'Amenazame otra vez y vas a ver.';}
  else if(event?.kind==='apology')response=r.resentment>=35?'No alcanza con decirlo. Todavía me acuerdo de lo que hiciste.':'Te escuché. Eso no significa que esté todo arreglado.';
  else if(r.hostility>=75||r.resentment>=82)response='No tengo nada que hablar con vos. Andate.';
  else if(r.trust<20)response=respondToIntent(text??'',a.name,a.disposition);

@@ -23,6 +23,7 @@ test('el prompt deja decidir al modelo desde la mente interna sin respuesta pref
  assert.match(messages[1]!.content,/no conozco automáticamente su nombre ni su historia/);
  assert.match(messages[1]!.content,/CONOCIMIENTO Y RUMORES SOBRE EL JUGADOR/);
  assert.match(messages[1]!.content,/Marta/);
+ assert.match(messages[1]!.content,/RESULTADO REAL DEL MOTOR/);
 });
 
 test('limpia envoltorios y limita la longitud de la línea del NPC',()=>{

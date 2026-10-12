@@ -67,6 +67,7 @@ export function buildDialogueMessages(context:DialogueContext):Array<{role:'syst
   'CONOCIMIENTO Y RUMORES SOBRE EL JUGADOR (con fuente y confianza): '+((context.playerKnowledge||[]).join(' | ')||'ninguno registrado; no inventes información previa'),
   'CONTEXTO MENTAL INTERNO (no lo recites; úsalo para razonar): '+context.internalMind,
   'MISIÓN VITAL PRIVADA: '+context.lifeMission,
+  'RESULTADO REAL DEL MOTOR (no lo contradigas): '+(context.engineLine||'sin resultado especial'),
   'EL JUGADOR DIJO: '+context.playerLine,
   'Responde como el personaje, de forma natural y breve. Decide según su mente y la situación, no según una plantilla.',
  ].join('\n');

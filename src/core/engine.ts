@@ -2,6 +2,7 @@ import {stream} from './rng.ts';
 import {distance,indexOf,type Actor,type LogEntry,type WorldState} from './types.ts';
 import {ageSocialMemories,classifyUtterance,recordSocialEvent,recordObservedSocialEvent,shareSocialRumor,relationshipTo,shouldAttack} from './social.ts';
 import {decideNpcBehavior,intentForSocialEvent,recentThreatCount} from './ai-matrix.ts';
+import {questOfferFor} from './character.ts';
 const WALKABLE=new Set(['floor','road','scrap','grass','door']);
 const DIRECTIONS=[[1,0],[-1,0],[0,1],[0,-1]] as const;
 export function tileAt(s:WorldState,x:number,y:number){return x<0||y<0||x>=s.width||y>=s.height?undefined:s.tiles[indexOf(x,y,s.width)];}
@@ -56,7 +57,7 @@ export function moveTo(s:WorldState,x:number,y:number):void{
 export function waitTurn(s:WorldState):void{tickWorld(s);addLog(s,'Dejas pasar cinco minutos. El barrio sigue funcionando sin pedirte permiso.','action');}
 export function inspect(s:WorldState):void{
  const a=s.selectedActorId?s.actors.find(v=>v.id===s.selectedActorId):undefined;
- if(a&&canSee(s,a)){addLog(s,a.name+' parece '+a.personality+'. Su objetivo visible no revela toda su intención.','action');return;}
+ if(a&&canSee(s,a)){const m=a.mind;const mission=a.lifeMission;const traits=Object.entries(m.traits).sort((x,y)=>y[1]-x[1]).slice(0,5).map(([k,v])=>k+': '+v).join(', ');const bestSkills=Object.entries(m.skills).sort((x,y)=>y[1]-x[1]).slice(0,3).map(([k,v])=>k+': '+v).join(', ');const knowledge=m.knowledge.slice(0,3).map(k=>k.topic+' ('+k.source+', confianza '+k.confidence+'): '+k.belief).join(' | ');const trauma=m.traumas[0]?m.traumas[0].event+'; detonantes: '+m.traumas[0].triggers.join(', '):'no se ha generado un trauma concreto';addLog(s,a.name+' | '+m.age+' años | origen: '+m.origin+'. '+m.upbringing+'. Formación: '+m.education+'.','action');addLog(s,'Capacidad cognitiva: IQ '+m.cognition.iq+'; memoria '+m.cognition.memory+', razonamiento '+m.cognition.reasoning+', lectura social '+m.cognition.socialInference+', aprendizaje '+m.cognition.learning+'.','action');addLog(s,'Personalidad (rasgos más altos): '+traits+'. Habilidades: '+bestSkills+'. Fortalezas: '+m.strengths.join(', ')+'. Limitaciones: '+m.limitations.join(', ')+'.','action');addLog(s,'Historia: '+m.history.map(h=>h.event+' ('+h.impact+')').join('; ')+'. Trauma: '+trauma+'.','action');addLog(s,'Conocimientos: '+knowledge+'. Estado: '+m.currentMood+'. Necesidades: '+m.needs.join(', ')+'.','action');addLog(s,'Misión vital: '+mission.title+'. Motivación: '+mission.motivation+'. Obstáculo: '+mission.obstacle+'. Progreso '+mission.progress+'/'+mission.steps.length+'.','action');return;}
  const t=s.selectedTile?tileAt(s,s.selectedTile.x,s.selectedTile.y):tileAt(s,s.player.x,s.player.y);
  addLog(s,t?({road:'La calle está gastada por botas y vehículos de carga.',building:'Una estructura industrial bloquea el paso.',door:'Una puerta reforzada. No sabes qué hay detrás.',scrap:'Restos de maquinaria abandonada.',grass:'Vegetación enferma crece entre el hormigón.',wall:'Un muro de contención.',water:'Agua oscura y contaminada.',floor:'Hormigón húmedo, grietas y marcas de arrastre.'}[t.terrain]):'No hay nada que observar.','action');
 }
@@ -78,6 +79,14 @@ export function talk(s:WorldState,text?:string):void{
  const a=s.selectedActorId?s.actors.find(v=>v.id===s.selectedActorId):undefined;
  if(!a||!canSee(s,a)){addLog(s,'No tienes a nadie seleccionado que pueda oírte.','warning');return;}
  if(distance(s.player,a)>2){addLog(s,a.name+' está demasiado lejos para conversar. Acércate primero.','warning');return;}
+ const clean=(text??'').toLocaleLowerCase('es').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
+ const offered=s.quests.find(q=>q.giverId===a.id&&q.status==='offered');
+ if(/\b(acepto|aceptar|acepto el encargo|me encargo|lo hare|lo hago)\b/.test(clean)){
+  if(offered){offered.status='accepted';offered.acceptedAtTick=s.tick;addLog(s,'Aceptaste el encargo de '+a.name+': '+offered.title+'. Objetivo actual: '+offered.objective+'.','action');tickWorld(s);return;}
+  addLog(s,a.name+' no te ha ofrecido ningún encargo que puedas aceptar.','warning');return;
+ }
+ if(/\b(rechazo|no acepto|no me interesa|dejalo)\b/.test(clean)&&offered){offered.status='declined';addLog(s,'Rechazaste el encargo de '+a.name+'. Su objetivo personal continúa.','action');tickWorld(s);return;}
+ const asksForWork=/\b(ayuda|ayudame|trabajo|encargo|mision|misiones|que necesitas|que necesitas de mi|en que puedo ayudar|tenes algun problema|tienes algun problema)\b/.test(clean);
  const event=text?classifyUtterance(text):null;
  if(event){
   const publicInsult=/(delante de todos|en público|frente a todos|con todos mirando)/i.test(text??'');
@@ -94,12 +103,17 @@ export function talk(s:WorldState,text?:string):void{
  if(!event&&(priorRelationship.hostility>=55||priorRelationship.resentment>=65)){addLog(s,a.name+' te corta antes de que puedas seguir. No tiene interés en hablar contigo.','warning');tickWorld(s);return;}
  let response:string;
  if(event?.kind==='insult')response=r.hostility>=65?'No te lo voy a olvidar. Sal de mi vista.':'¿Te pensás que podés hablarme así?';
- else if(event?.kind==='threat'){const threats=recentThreatCount(a,'player',24,s.tick);const decision=decideNpcBehavior({intent:intentForSocialEvent(event.kind),disposition:a.disposition,traits:a.social.traits,relationship:r,recentThreats:threats});response=decision.behavior==='fearful'?'No te acerques. No pienso arriesgarme con vos.':decision.behavior==='defend'?'Se terminó. Si volvés a amenazarme, me voy a defender.':decision.behavior==='deescalate'?'No quiero problemas. Bajá la voz y alejate.':decision.behavior==='refuse'?'No voy a seguir hablando con alguien que me amenaza.':threats>=2?'Ya te escuché. No vuelvas a amenazarme.':'Amenazame otra vez y vas a ver.';}
+ else if(event?.kind==='threat'){const threats=recentThreatCount(a,'player',24,s.tick);const decision=decideNpcBehavior({intent:intentForSocialEvent(event.kind),disposition:a.disposition,traits:a.social.traits,relationship:r,recentThreats:threats,mind:a.mind});response=decision.behavior==='fearful'?'No te acerques. No pienso arriesgarme con vos.':decision.behavior==='defend'?'Se terminó. Si volvés a amenazarme, me voy a defender.':decision.behavior==='deescalate'?'No quiero problemas. Bajá la voz y alejate.':decision.behavior==='refuse'?'No voy a seguir hablando con alguien que me amenaza.':threats>=2?'Ya te escuché. No vuelvas a amenazarme.':'Amenazame otra vez y vas a ver.';}
  else if(event?.kind==='apology')response=r.resentment>=35?'No alcanza con decirlo. Todavía me acuerdo de lo que hiciste.':'Te escuché. Eso no significa que esté todo arreglado.';
  else if(r.hostility>=75||r.resentment>=82)response='No tengo nada que hablar con vos. Andate.';
  else if(r.trust<20)response=respondToIntent(text??'',a.name,a.disposition);
  else response=respondToIntent(text??'',a.name,a.disposition);
  addLog(s,a.name+': «'+response+'»','dialogue');
+ if(asksForWork&&!['insult','threat'].includes(event?.kind??'')){
+  const quest=questOfferFor(s,a);
+  if(quest){s.quests.push(quest);addLog(s,a.name+' te propone un encargo: '+quest.title+'. '+quest.description+' Para aceptarlo, responde «acepto».','dialogue');}
+  else addLog(s,a.name+' no te confía ningún encargo por ahora.','world');
+ }
 }
 export function selectActor(s:WorldState,id:string):void{const a=s.actors.find(v=>v.id===id);if(a&&canSee(s,a)){s.selectedActorId=id;s.selectedTile={x:a.x,y:a.y};}}
 export function say(s:WorldState,text:string):void{const clean=text.trim();if(!clean)return;const a=s.selectedActorId?s.actors.find(v=>v.id===s.selectedActorId):undefined;if(!a||!canSee(s,a)||distance(s.player,a)>2){addLog(s,'Tu voz se pierde entre motores y lluvia. Nadie responde.','action');tickWorld(s);return;}addLog(s,'Tú: «'+clean+'»','dialogue');talk(s,clean);}

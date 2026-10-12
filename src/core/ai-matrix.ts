@@ -1,4 +1,4 @@
-import type {Actor,Disposition,SocialRelationship,SocialTraits} from './types.ts';
+import type {Actor,Disposition,NpcMind,SocialRelationship,SocialTraits} from './types.ts';
 
 export type NpcIntent='threat'|'insult'|'apology'|'help'|'greeting'|'question'|'request'|'unknown';
 export type NpcBehavior='engage'|'cautious'|'refuse'|'warn'|'defend'|'deescalate'|'fearful';
@@ -8,6 +8,7 @@ export interface NpcDecisionContext {
   traits:SocialTraits;
   relationship:SocialRelationship;
   recentThreats:number;
+  mind?:NpcMind;
 }
 export interface NpcDecision {behavior:NpcBehavior;scores:Record<NpcBehavior,number>;reason:string;}
 
@@ -18,15 +19,23 @@ export interface NpcDecision {behavior:NpcBehavior;scores:Record<NpcBehavior,num
 export function decideNpcBehavior(c:NpcDecisionContext):NpcDecision {
   const {intent,disposition:d,traits:t,relationship:r}=c;
   const threat=intent==='threat', insult=intent==='insult', hostileAct=threat||insult;
+  const mind=c.mind;
+  const pride=mind?.traits.pride??t.pride, fearReactivity=mind?.traits.paranoia??t.susceptibility, selfControl=mind?mind.traits.emotionalStability*.6+mind.traits.conscientiousness*.25+(100-mind.traits.impulsivity)*.15:t.selfControl;
   const scores:Record<NpcBehavior,number>={
     engage: 12 + r.trust*.20 + r.affection*.10 + r.respect*.08 + t.reconciliation*.10 - r.hostility*.12 - r.resentment*.08,
-    cautious: 8 + (100-r.trust)*.12 + (d==='wary'?18:0) + (d==='hostile'?8:0) + t.selfControl*.08,
-    refuse: -8 + r.hostility*.22 + r.resentment*.20 + t.pride*.08 - t.reconciliation*.08,
-    warn: threat ? 18 + c.recentThreats*9 + t.reactivity*.12 + r.hostility*.08 - t.selfControl*.06 : -50,
-    defend: hostileAct ? -4 + r.hostility*.18 + t.vengefulness*.16 + c.recentThreats*(threat?8:3) + t.reactivity*.08 - r.fear*.12 - t.selfControl*.08 : -50,
-    deescalate: threat ? 5 + r.fear*.12 + t.selfControl*.16 + t.reconciliation*.08 - t.vengefulness*.12 : 0,
-    fearful: threat ? -2 + r.fear*.45 + (100-t.selfControl)*.06 + c.recentThreats*3 : -50,
+    cautious: 8 + (100-r.trust)*.12 + (d==='wary'?18:0) + (d==='hostile'?8:0) + selfControl*.08,
+    refuse: -8 + r.hostility*.22 + r.resentment*.20 + pride*.08 - t.reconciliation*.08,
+    warn: threat ? 18 + c.recentThreats*9 + t.reactivity*.12 + r.hostility*.08 - selfControl*.06 : -50,
+    defend: hostileAct ? -4 + r.hostility*.18 + t.vengefulness*.16 + c.recentThreats*(threat?8:3) + t.reactivity*.08 - r.fear*.12 - selfControl*.08 : -50,
+    deescalate: threat ? 5 + r.fear*.12 + selfControl*.16 + t.reconciliation*.08 - t.vengefulness*.12 : 0,
+    fearful: threat ? -2 + r.fear*.45 + fearReactivity*.06 + (100-selfControl)*.06 + c.recentThreats*3 : -50,
   };
+  scores.defend += (mind?.traits.vengefulness??t.vengefulness)*.08 + (mind?.traits.riskTolerance??50)*.04;
+  scores.fearful += (mind?.traits.paranoia??50)*.06 - (mind?.cognition.stressTolerance??50)*.04;
+  scores.deescalate += (mind?.traits.empathy??50)*.05 + (mind?.traits.patience??50)*.04;
+  scores.defend += (mind?.traits.vengefulness??t.vengefulness)*.08 + (mind?.traits.riskTolerance??50)*.04;
+  scores.fearful += (mind?.traits.paranoia??50)*.06 - (mind?.cognition.stressTolerance??50)*.04;
+  scores.deescalate += (mind?.traits.empathy??50)*.05 + (mind?.traits.patience??50)*.04;
   if(intent==='apology'){
     scores.engage += t.reconciliation*.18;
     scores.refuse += (100-t.reconciliation)*.12 + r.resentment*.08;

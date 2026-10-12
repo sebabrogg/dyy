@@ -100,3 +100,11 @@ test('los pasos de una misión personal generan objetivos de investigación, rec
  for(const [progress,type] of expected){npc.lifeMission.progress=progress;const q=makeLifeQuest(npc,0);assert.equal(q.objectiveType,type);}
  npc.lifeMission.progress=2;assert.equal(makeLifeQuest(npc,0).requiredItemId,'scrap');
 });
+
+test('el contexto de un NPC puede incluir su entorno observado sin convertirlo en conocimiento omnisciente',()=>{
+  const s=generateWorld(993),npc=s.actors[0]!;
+  const context=buildDialogueContext(npc,'¿Qué estás haciendo?','','terreno inmediato scrap; una persona no identificada a 2 m');
+  assert.match(context.observedSurroundings,/terreno inmediato scrap/);
+  assert.match(context.observedSurroundings,/persona no identificada/);
+  assert.ok(context.actorName);
+});

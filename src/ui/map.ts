@@ -28,7 +28,7 @@ export function drawMap(canvas:HTMLCanvasElement,s:WorldState):MapView{
   if(identified){ctx.fillStyle='#101314';ctx.font='bold '+Math.max(8,tileW*.32)+'px monospace';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(a.glyph,p.x,p.y-tileH*.02);if(a.alert>15){ctx.fillStyle='#e36b5e';ctx.fillRect(p.x-2,p.y-tileH*.3,4,2);}}ctx.globalAlpha=1;
  }
  const pp=center(s.player.x,s.player.y);ctx.beginPath();ctx.ellipse(pp.x,pp.y+tileH*.48,tileW*.23,tileH*.23,0,0,Math.PI*2);ctx.fillStyle='#d8d9d0';ctx.fill();
- ctx.strokeStyle='#111';ctx.lineWidth=1.5;ctx.stroke();ctx.fillStyle='#111';ctx.font='bold '+Math.max(10,tileW*.45)+'px monospace';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('@',pp.x,pp.y+tileH*.16);
+ ctx.strokeStyle='#111';ctx.lineWidth=1.5;ctx.stroke();ctx.fillStyle='#111';ctx.font='bold '+Math.max(10,tileW*.45)+'px monospace';ctx.textAlign='center';ctx.textBaseline='middle';const avatar:Record<string,string>={wanderer:'♟',hooded:'◕',masked:'◉',worker:'▣',armored:'♜'};ctx.fillText(avatar[s.player.appearance??'wanderer']??'♟',pp.x,pp.y+tileH*.16);
  if(s.selectedTile){const p=center(s.selectedTile.x,s.selectedTile.y);ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(p.x+tileW/2,p.y+tileH/2);ctx.lineTo(p.x,p.y+tileH);ctx.lineTo(p.x-tileW/2,p.y+tileH/2);ctx.closePath();ctx.strokeStyle='#d7b76d';ctx.lineWidth=1.5;ctx.stroke();}
  return{tileW,tileH,originX,originY,scale:1};
 }

@@ -26,10 +26,10 @@ export interface DialogueContext {
  actorName:string; faction:string; personality:string; goal:string;
  disposition:string; relationship:string; memories:string[]; playerKnowledge:string[];
  playerIdentity:string; observedPlayer:string;
- playerLine:string; engineLine:string; internalMind:string; lifeMission:string;
+ playerLine:string; engineLine:string; internalMind:string; lifeMission:string; observedSurroundings:string;
 }
 
-export function buildDialogueContext(actor:Actor,playerLine:string,engineLine:string):DialogueContext {
+export function buildDialogueContext(actor:Actor,playerLine:string,engineLine:string,observedSurroundings='No hay observaciones del entorno disponibles.'):DialogueContext {
  const relation=actor.social.relationships.player;
  const allMemories=actor.social.memories.filter(memory=>memory.targetId==='player');
  const recentMemories=allMemories.slice(-8);
@@ -46,7 +46,7 @@ export function buildDialogueContext(actor:Actor,playerLine:string,engineLine:st
   playerIdentity:'La persona que tengo delante es el jugador. No conozco automáticamente su nombre, historia, estadísticas, inventario ni pensamientos. Solo puedo atribuirle identidad o características que haya observado, que me haya contado o que me hayan llegado por una fuente identificable.',
   observedPlayer:'El jugador está interactuando conmigo ahora. No deduzcas heridas, equipo, intenciones ni estado mental sin evidencia explícita.',
   playerLine:playerLine.slice(0,500),engineLine:engineLine.slice(0,240),
-  internalMind:JSON.stringify(actor.mind),lifeMission:JSON.stringify(actor.lifeMission),
+  internalMind:JSON.stringify(actor.mind),lifeMission:JSON.stringify(actor.lifeMission),observedSurroundings,
  };
 }
 
@@ -61,7 +61,7 @@ export function buildDialogueMessages(context:DialogueContext):Array<{role:'syst
   'Interpreta el mensaje del jugador como este personaje concreto. Decide qué piensa, siente, quiere comunicar, ocultar, negar o preguntar, usando personalidad, biografía, memoria, conocimiento, objetivos y relación con el jugador.',
   'No hay respuesta base ni diálogo prefabricado. No reveles datos privados solo porque estén en tu contexto; decide si este personaje los compartiría en esta situación.',
   'No afirmes como hechos cosas que no estén respaldadas por el contexto. Puedes mentir, equivocarte, evadir o expresar incertidumbre si encaja con el personaje, pero no cambies el estado real del mundo.',
-  'Devuelve solo lo que diría el personaje, en una o dos frases breves. Sin etiquetas, explicaciones, comillas ni narración externa.',
+  'Devuelve solo lo que diría el personaje, en una o dos frases breves. No uses etiquetas ni explicaciones externas. Si haces un gesto o una acción física, escríbelo entre asteriscos, por ejemplo *mira hacia la puerta*. No inventes acciones sin motivo.',
  ].join(' ');
  const user=[
   'PERSONAJE: '+context.actorName,'FACCIÓN: '+context.faction,
@@ -72,6 +72,8 @@ export function buildDialogueMessages(context:DialogueContext):Array<{role:'syst
   'RECUERDOS RELEVANTES SOBRE EL JUGADOR: '+(context.memories.join(' | ')||'ninguno registrado'),
   'CONOCIMIENTO Y RUMORES SOBRE EL JUGADOR (con fuente y confianza): '+((context.playerKnowledge||[]).join(' | ')||'ninguno registrado; no inventes información previa'),
   'CONTEXTO MENTAL INTERNO (no lo recites; úsalo para razonar): '+context.internalMind,
+  'PUNTO DE VISTA PROPIO: sos '+context.actorName+'. Tenés una vida, recuerdos, necesidades, objetivos y motivos para estar donde estás. Podés explicar qué estabas haciendo si lo sabés; no inventes una explicación segura si no la recordás. No sos omnisciente ni conocés hechos fuera de tus sentidos, recuerdos o fuentes. No confundas la interfaz del juego con tu mundo.',
+  'ENTORNO OBSERVADO AHORA: '+context.observedSurroundings+'. Solo esto y tus recuerdos justifican lo que sabés del lugar. No afirmes haber visto personajes, objetos o sucesos que no aparecen aquí ni en tus recuerdos.',
   'MISIÓN VITAL PRIVADA: '+context.lifeMission,
   'RESULTADO REAL DEL MOTOR (no lo contradigas): '+(context.engineLine||'sin resultado especial'),
   'EL JUGADOR DIJO: '+context.playerLine,

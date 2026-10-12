@@ -29,7 +29,13 @@ test('migra guardados v1 asignando un plazo a los encargos antiguos sin romper p
  world.quests.push({id:'old-quest',giverId:giver.id,missionId:giver.lifeMission.id,title:'Encargo antiguo',description:'Prueba',objective:'Volver',requirements:['medicina'],reward:'nada',status:'accepted',offeredAtTick:1,acceptedAtTick:2,deadlineTick:100});
  const old=JSON.parse(encodeSave(world)) as {version:number;state:typeof world};
  old.version=1;delete (old.state.quests[0] as Partial<typeof old.state.quests[number]>).deadlineTick;
+ delete (old.state.quests[0] as Partial<typeof old.state.quests[number]>).objectiveType;
+ delete (old.state.quests[0] as Partial<typeof old.state.quests[number]>).progress;
+ delete (old.state.quests[0] as Partial<typeof old.state.quests[number]>).evidence;
  const loaded=decodeSave(JSON.stringify(old));
  assert.ok(loaded.quests[0]!.deadlineTick>loaded.tick);
  assert.equal(loaded.quests[0]!.status,'accepted');
+ assert.equal(loaded.quests[0]!.objectiveType,'investigate_and_report');
+ assert.equal(loaded.quests[0]!.progress,0);
+ assert.equal(loaded.quests[0]!.evidence,null);
 });

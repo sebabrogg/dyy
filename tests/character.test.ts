@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {generateWorld} from '../src/world/generate.ts';
-import {canOfferLifeQuest} from '../src/core/character.ts';
+import {canOfferLifeQuest,questOfferFor} from '../src/core/character.ts';
 import {inspect,selectActor,talk} from '../src/core/engine.ts';
 import {buildDialogueContext} from '../src/ai/local-dialogue.ts';
 
@@ -80,4 +80,16 @@ test('el contexto de diálogo conserva las siete dimensiones de la relación',()
   npc.social.relationships.player={affection:31,trust:42,respect:53,resentment:64,fear:75,debt:86,hostility:97};
   const context=buildDialogueContext(npc,'hola','');
   for(const dimension of ['confianza 42/100','hostilidad 97/100','resentimiento 64/100','miedo 75/100','respeto 53/100','afecto 31/100','deuda 86/100']) assert.ok(context.relationship.includes(dimension),dimension);
+});
+
+test('una misión personal puede generar el siguiente encargo tras completar el anterior',()=>{
+ const s=generateWorld(906),npc=s.actors[0]!;
+ npc.social.relationships.player!.respect=80;
+ npc.lifeMission.progress=1;
+ s.quests.push({id:'quest-old',giverId:npc.id,missionId:npc.lifeMission.id,title:npc.lifeMission.title,description:'Anterior',objective:'Investigar',requirements:[],reward:'Nada',status:'completed',offeredAtTick:0,acceptedAtTick:0,deadlineTick:100,objectiveType:'investigate_and_report',progress:1,evidence:'tile:1,1:road'});
+ const next=questOfferFor(s,npc);
+ assert.ok(next);
+ assert.notEqual(next.id,'quest-old');
+ assert.match(next.objective,/observación comprobable/);
+ assert.match(next.description,/Paso actual/);
 });

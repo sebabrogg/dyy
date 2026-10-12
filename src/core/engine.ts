@@ -83,10 +83,20 @@ export function inspect(s:WorldState):void{
   const distance=Math.hypot(a.x-s.player.x,a.y-s.player.y);
   const visible=a.alert>20?'Parece alerta y pendiente de lo que ocurre a su alrededor.':distance<=2?'Está lo bastante cerca como para hablar, si quiere escucharte.':'No podés distinguir mucho más desde esta distancia.';
   addLog(s,visible,'action');
+  for(const q of s.quests.filter(q=>q.status==='accepted'&&q.objectiveType==='investigate_and_report'&&q.progress===0&&q.giverId!==a.id)){
+   q.progress=1;q.evidence='actor:'+a.id;
+   addLog(s,'Tu observación de '+a.name+' queda registrada para el encargo «'+q.title+'».','action');
+  }
   return;
  }
  const t=s.selectedTile?tileAt(s,s.selectedTile.x,s.selectedTile.y):tileAt(s,s.player.x,s.player.y);
  addLog(s,t?({road:'La calle está gastada por botas y vehículos de carga.',building:'Una estructura industrial bloquea el paso.',door:'Una puerta reforzada. No sabes qué hay detrás.',scrap:'Restos de maquinaria abandonada.',grass:'Vegetación enferma crece entre el hormigón.',wall:'Un muro de contención.',water:'Agua estancada.',floor:'Una superficie de hormigón marcada por el uso.'}[t.terrain]??'No distinguís nada concluyente.'):'No hay nada claro que examinar.','action');
+ if(t){
+  for(const q of s.quests.filter(q=>q.status==='accepted'&&q.objectiveType==='investigate_and_report'&&q.progress===0)){
+   q.progress=1;q.evidence='tile:'+t.x+','+t.y+':'+t.terrain;
+   addLog(s,'La observación del terreno queda registrada para el encargo «'+q.title+'».','action');
+  }
+ }
 }
 export function respondToIntent(text:string,name:string,disposition:Actor['disposition']):string{
  const t=text.toLocaleLowerCase('es').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
@@ -108,6 +118,19 @@ export function talk(s:WorldState,text?:string,options:{suppressDialogue?:boolea
  if(distance(s.player,a)>2){addLog(s,a.name+' está demasiado lejos para conversar. Acércate primero.','warning');return;}
  const clean=(text??'').toLocaleLowerCase('es').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
  const event=text?classifyUtterance(text):null;
+ const reportable=s.quests.filter(q=>q.giverId===a.id&&q.status==='accepted'&&q.objectiveType==='investigate_and_report'&&q.progress>0);
+ if(reportable.length&&/(informo|investigue|encontre|volvi|tengo informacion|te cuento|ya investigue|ya volvi|esto es lo que vi)/.test(clean)){
+  for(const q of reportable){
+   q.status='completed';
+   a.lifeMission.progress=Math.min(a.lifeMission.steps.length,a.lifeMission.progress+1);
+   if(a.lifeMission.progress>=a.lifeMission.steps.length)a.lifeMission.status='completed';
+   const rel=a.social.relationships.player;
+   if(rel){rel.trust=Math.min(100,rel.trust+8);rel.respect=Math.min(100,rel.respect+5);rel.debt=Math.min(100,rel.debt+6);}
+   recordSocialEvent(a,{kind:'help',targetId:'player',tick:s.tick,severity:16,description:'El jugador cumplió el encargo «'+q.title+'» y volvió con una observación.',interpretation:'cumplió un compromiso'});
+   addLog(s,'Encargo completado: «'+q.title+'». La observación registrada fue aceptada por '+a.name+'.','action');
+  }
+  tickWorld(s);return;
+ }
  if(text?.trim()&&!event)recordSocialEvent(a,{kind:'conversation',targetId:'player',tick:s.tick,severity:8,description:'El jugador me dijo: «'+text.trim().slice(0,240)+'»',interpretation:'interacción recordada'});
  const offered=s.quests.find(q=>q.giverId===a.id&&q.status==='offered');
  if(/\b(acepto|aceptar|acepto el encargo|me encargo|lo hare|lo hago)\b/.test(clean)){

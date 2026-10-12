@@ -64,9 +64,9 @@ export function canOfferLifeQuest(actor:Actor):{eligible:boolean;reason:string;u
  if(liking>=43&&rel.trust>=25)return {eligible:true,reason:'se siente suficientemente cómodo contigo',utility,liking};
  return {eligible:false,reason:'todavía no confía en ti ni ve una utilidad clara',utility,liking};
 }
-export function makeLifeQuest(actor:Actor,tick:number):NpcQuest{return {id:'quest-'+actor.id+'-'+actor.lifeMission.id,giverId:actor.id,missionId:actor.lifeMission.id,title:actor.lifeMission.title,description:actor.lifeMission.description,objective:actor.lifeMission.steps[Math.min(actor.lifeMission.progress,actor.lifeMission.steps.length-1)]??actor.lifeMission.description,requirements:[...actor.lifeMission.needs],reward:'la recompensa depende de lo que el NPC pueda ofrecer y de cómo termine el asunto',status:'offered',offeredAtTick:tick,acceptedAtTick:null,deadlineTick:tick+120+actor.lifeMission.needs.length*24};}
+export function makeLifeQuest(actor:Actor,tick:number):NpcQuest{return {id:'quest-'+actor.id+'-'+actor.lifeMission.id+'-'+actor.lifeMission.progress,giverId:actor.id,missionId:actor.lifeMission.id,title:actor.lifeMission.title,description:actor.lifeMission.description+' Paso actual: '+(actor.lifeMission.steps[Math.min(actor.lifeMission.progress,actor.lifeMission.steps.length-1)]??actor.lifeMission.description)+'.',objective:'Investiga la situación y vuelve con una observación comprobable.',requirements:[...actor.lifeMission.needs],reward:'la recompensa depende de lo que el NPC pueda ofrecer y de cómo termine el asunto',status:'offered',offeredAtTick:tick,acceptedAtTick:null,deadlineTick:tick+120+actor.lifeMission.needs.length*24,objectiveType:'investigate_and_report',progress:0,evidence:null};}
 export function questOfferFor(s:WorldState,actor:Actor):NpcQuest|null{
  const decision=canOfferLifeQuest(actor);if(!decision.eligible)return null;
- if(s.quests.some(q=>q.giverId===actor.id&&q.missionId===actor.lifeMission.id&&q.status!=='declined'&&q.status!=='failed'))return null;
+ if(s.quests.some(q=>q.giverId===actor.id&&q.missionId===actor.lifeMission.id&&(q.status==='offered'||q.status==='accepted')))return null;
  return makeLifeQuest(actor,s.tick);
 }

@@ -10,7 +10,9 @@ export function registerQuestFromDialogue(state:WorldState,giverId:string,npcLin
  // Require both a request directed at the player and a concrete topic/action. Need or desire alone is not a quest.
  const asksPlayer=/(?:avisame|avisa|informame|volv[eé] y|volves y|volves|volvé|fijate|investiga|busca|averigua|averigua|consegui|consegu[ií]|traeme|tra[eé]me|lleva|entregame|decime|contame|me traes|me traigas|si escuchas|si escuchas algo|si sabes algo|necesito que|quiero que|podrias|podes|me serviria que|lo que me sirve es que|el favor es que)/.test(text);
  if(!asksPlayer)return null;
- const explicitQuest=/(?:es un encargo|te encargo|tengo un encargo|un encargo para vos|una tarea para vos|te puedo pedir|te pido que|el favor es que)/.test(text);
+ // A quest noun by itself is ambiguous (the player may be offering a job to this NPC).
+ // Only treat it as explicit quest framing when a verb/qualifier introduces it.
+ const explicitQuest=/(?:\b(?:ten[eé]s|tienes|hay|tengo|necesito|busco|ofrezco|aceptas|quer[eé]s|quieres|es|sigue siendo|te puedo ofrecer)\s+(?:alg[uú]n|alguna|un|una|el|la|este|esta)?\s*(?:encargo|tarea|trabajo|favor|recado|misi[oó]n)\b|\bte encargo\b|\bte puedo pedir\b|\bte pido que\b|\bel favor es que\b|\bel encargo sigue en pie\b|\bla tarea sigue en pie\b)/.test(text);
  const topicMatch=text.match(/\b(?:sobre|del|de|por|acerca de)\s+(?:el|la|los|las|un|una)?\s*([a-z0-9ñ ]{2,48}?)(?=[,.!?;:]|\s+(?:y avisame|y volve|y volvé|y me|para que|porque|que me|si podes|si pod[eé]s)|$)/i);
  let topic=(topicMatch?.[1]??'').trim().replace(/\b(?:algo|nada|esto|eso|alguien|alguna cosa)\b/g,'').trim();
  if(!topic){const m=text.match(/(?:escuchas algo|sabes algo|averigua|investiga|busca|consegui|consegui|fijate si|necesito)\s+(?:si\s+)?(?:hay\s+)?(?:algo\s+)?(?:sobre\s+)?(?:del\s+|de\s+)?([a-z0-9ñ ]{2,36}?)(?=[,.!?;:]|\s+(?:y avisame|y volve|y volvé|y me|para que|porque|que me)|$)/i);topic=(m?.[1]??'').trim();}

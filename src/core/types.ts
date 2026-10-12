@@ -8,10 +8,10 @@ export interface SocialRelationship{affection:number;trust:number;respect:number
 export interface SocialKnowledge{eventId:string;subjectId:string;targetId:string;kind:SocialEventKind;tick:number;confidence:number;source:'witness'|'rumor';interpretation:string;hops:number;}
 export interface PlaceMemory{placeId:string;tick:number;description:string;salience:number;}
 export interface ActorSocialState{traits:SocialTraits;memories:SocialMemory[];placeMemories?:PlaceMemory[];relationships:Record<string,SocialRelationship>;contacts:Record<string,number>;knowledge:SocialKnowledge[];reputation:Record<string,number>;lastAgedTick:number;}
-export interface Actor{id:string;name:string;knownToPlayer?:boolean;glyph:string;x:number;y:number;inventory?:Item[];faction:string;disposition:Disposition;personality:string;goal:string;trust:number;alert:number;alive:boolean;color:string;lastSeenPlayerTick:number;social:ActorSocialState;mind:NpcMind;lifeMission:LifeMission;}
-export interface Item{id:string;name:string;quantity:number;description:string;}
+export interface Actor{id:string;name:string;knownToPlayer?:boolean;glyph:string;x:number;y:number;inventory?:Item[];credits?:number;faction:string;disposition:Disposition;personality:string;goal:string;trust:number;alert:number;alive:boolean;color:string;lastSeenPlayerTick:number;social:ActorSocialState;mind:NpcMind;lifeMission:LifeMission;}
+export interface Item{id:string;name:string;quantity:number;description:string;condition?:number;weight?:number;provenance?:string;}
 export type PlayerAppearance='wanderer'|'hooded'|'masked'|'worker'|'armored';
-export interface Player{x:number;y:number;appearance?:PlayerAppearance;health:number;sanity:number;hunger:number;sleepDebtMinutes?:number;inventory:Item[];}
+export interface Player{x:number;y:number;appearance?:PlayerAppearance;health:number;sanity:number;hunger:number;sleepDebtMinutes?:number;credits:number;inventory:Item[];}
 export interface WorldLocation{id:string;name:string;kind:string;x:number;y:number;discovered:boolean;knownByActorIds:string[];}
 export interface WorldState{paused?:boolean;elapsedWorldMs?:number;lastClockUpdate?:number;seed:number;width:number;height:number;tiles:Tile[];locations?:WorldLocation[];actors:Actor[];player:Player;tick:number;day:number;minute:number;selectedActorId:string|null;selectedTile:{x:number;y:number}|null;log:LogEntry[];quests:NpcQuest[];running:boolean;}
 export interface LogEntry{tick:number;text:string;kind:'world'|'action'|'warning'|'dialogue'|'perception'|'feeling'|'event'|'danger';actorId?:string;}

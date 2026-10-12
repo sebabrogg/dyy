@@ -16,6 +16,8 @@ export function decodeSave(serialized:string):WorldState {
  if(!envelope.state||typeof envelope.state!=='object')throw new Error('El guardado no contiene una partida.');
  const state=envelope.state as WorldState;
  if(!Number.isInteger(state.seed)||!Number.isInteger(state.width)||!Number.isInteger(state.height)||!Array.isArray(state.tiles)||!Array.isArray(state.actors)||!Array.isArray(state.quests)||!Array.isArray(state.log)||!state.player||!Array.isArray(state.player.inventory))throw new Error('La estructura de la partida está incompleta.');
+ if(!Number.isFinite(state.player.credits))state.player.credits=126;
+ for(const actor of state.actors){if(!Number.isFinite(actor.credits))actor.credits=30;if(!Array.isArray(actor.inventory))actor.inventory=[];}
  for(const quest of state.quests){
   if(!quest.objectiveType)quest.objectiveType='investigate_and_report';
   if(!('requiredItemId' in (quest as unknown as Record<string,unknown>)))quest.requiredItemId=quest.objectiveType==='deliver_item'?'scrap':null;

@@ -42,3 +42,17 @@ test('el NPC puede aceptar un recurso alineado con sus necesidades',()=>{
  const decision=evaluateTradeOffer(actor,{id:'scrap',name:'Chatarra',quantity:2,description:'Metal para repuestos'},{id:'knife',name:'Cuchillo',quantity:1,description:'Hoja afilada'},2,1);
  assert.equal(decision.accepted,true);
 });
+
+import {executeMarketTrade,marketPrice} from '../src/core/trade.ts';
+
+test('comprar actualiza créditos e inventarios de forma atómica antes de avanzar el reloj del motor',()=>{
+ const {state,actor}=setup();actor.inventory=[{id:'battery',name:'Batería industrial',quantity:2,description:'Carga útil para equipos y maquinaria',condition:100}];actor.credits=100;state.player.credits=126;
+ const price=marketPrice(actor.inventory[0]!,actor,'buy');const before=state.elapsedWorldMs??0;const result=executeMarketTrade(state,actor.id,'buy','battery',1);
+ assert.equal(result.accepted,true,result.reason);assert.equal(state.player.credits,126-price);assert.equal(actor.credits,100+price);assert.equal(state.player.inventory.find(i=>i.id==='battery')?.quantity,1);assert.equal(actor.inventory[0]?.quantity,1);assert.equal(state.elapsedWorldMs??0,before);
+});
+
+test('no se puede comprar sin crédito ni vender existencias que ya no existen',()=>{
+ const {state,actor}=setup();actor.inventory=[{id:'battery',name:'Batería industrial',quantity:2,description:'Carga útil',condition:100}];state.player.credits=0;
+ assert.equal(executeMarketTrade(state,actor.id,'buy','battery',1).accepted,false);assert.equal(actor.inventory[0]?.quantity,2);
+ assert.equal(executeMarketTrade(state,actor.id,'sell','scrap',4).accepted,false);assert.equal(state.player.inventory[0]?.quantity,3);
+});

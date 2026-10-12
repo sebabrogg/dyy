@@ -12,7 +12,7 @@ function addLog(s:WorldState,text:string,kind:LogEntry['kind']='world'){s.log.pu
 function occupied(s:WorldState,x:number,y:number,ignore?:string):boolean{return s.actors.some(a=>a.alive&&a.id!==ignore&&a.x===x&&a.y===y)||(s.player.x===x&&s.player.y===y);}
 function walkable(s:WorldState,x:number,y:number):boolean{const t=tileAt(s,x,y);return !!t&&WALKABLE.has(t.terrain)&&!occupied(s,x,y);}
 export function refreshVisibility(s:WorldState):void{for(const t of s.tiles)if(distance(s.player,t)<=6)t.explored=true;}
-export function initializeWorld(s:WorldState):void{refreshVisibility(s);addLog(s,'La lluvia ácida cae sobre las Calderas. Un altavoz repite las condiciones del toque de queda.');addLog(s,'El puesto de control está activo. Nadie parece tener prisa por explicarte por qué.');}
+export function initializeWorld(s:WorldState):void{refreshVisibility(s);addLog(s,'La lluvia ácida cae sobre las Calderas. Un altavoz repite las condiciones del toque de queda.','perception');addLog(s,'El puesto de control está activo. Nadie parece tener prisa por explicarte por qué.','perception');}
 function resolveQuestConsequences(s:WorldState):void{
  for(const quest of s.quests){
   if(quest.status!=='accepted')continue;
@@ -22,7 +22,7 @@ function resolveQuestConsequences(s:WorldState):void{
   if(!deadOrMissing&&!expired)continue;
   quest.status='failed';
   const reason=deadOrMissing?(giver?'quien te lo confió ha muerto.':'quien te lo confió ya no está disponible.'):'dejaste vencer el plazo.';
-  addLog(s,'El encargo «'+quest.title+'» ha fracasado: '+reason,'warning');
+  addLog(s,'El encargo «'+quest.title+'» ha fracasado: '+reason,'event');
   if(giver){
    const rel=giver.social.relationships.player;
    if(rel){
@@ -36,12 +36,12 @@ function resolveQuestConsequences(s:WorldState):void{
 
 function tickWorld(s:WorldState):void{
  s.tick++;s.minute+=5;if(s.minute>=1440){s.minute-=1440;s.day++;}
- s.player.hunger=Math.min(100,s.player.hunger+.25);
+ const previousHunger=s.player.hunger;s.player.hunger=Math.min(100,s.player.hunger+.25);if(previousHunger<70&&s.player.hunger>=70)addLog(s,'El hambre empieza a distraerte.','feeling');if(previousHunger<90&&s.player.hunger>=90)addLog(s,'El hambre te debilita; cuesta ignorarla.','feeling');
  const rng=stream(s.seed,'npc.ai.tick.'+s.tick);
  for(const a of s.actors.filter(v=>v.alive)){
   ageSocialMemories(a,s.tick);
   const d=distance(s.player,a);
-  if(d<=5){a.lastSeenPlayerTick=s.tick;const rel=relationshipTo(a);if(rel.hostility>=75||rel.resentment>=82)a.disposition='hostile';else if(rel.hostility>=40&&a.disposition!=='hostile')a.disposition='wary';if(d<=2){if(a.disposition==='hostile')a.alert=Math.min(100,a.alert+8);else if(a.disposition==='wary')a.alert=Math.min(100,a.alert+2);if(a.alert>=32&&shouldAttack(a,'player',a.alert,0)){s.player.health=Math.max(0,s.player.health-2);addLog(s,a.name+' te ataca. No parece dispuesto a dejar pasar lo ocurrido.','warning');}}}
+  if(d<=5){a.lastSeenPlayerTick=s.tick;const rel=relationshipTo(a);if(rel.hostility>=75||rel.resentment>=82)a.disposition='hostile';else if(rel.hostility>=40&&a.disposition!=='hostile')a.disposition='wary';if(d<=2){if(a.disposition==='hostile')a.alert=Math.min(100,a.alert+8);else if(a.disposition==='wary')a.alert=Math.min(100,a.alert+2);if(a.alert>=32&&shouldAttack(a,'player',a.alert,0)){s.player.health=Math.max(0,s.player.health-2);addLog(s,a.name+' te ataca. No parece dispuesto a dejar pasar lo ocurrido.','danger');addLog(s,'El impacto te sacude; el dolor reclama tu atención.','feeling');}}}
   else a.alert=Math.max(0,a.alert-1);
   // A small deterministic idle policy: people reposition only when their local situation permits it.
   if(rng.next()<.18&&a.alert<20&&d>2){const [dx,dy]=rng.pick(DIRECTIONS);const nx=a.x+dx,ny=a.y+dy;if(walkable(s,nx,ny)){a.x=nx;a.y=ny;}}
@@ -82,19 +82,19 @@ export function inspect(s:WorldState):void{
  if(a&&canSee(s,a)){
   const distance=Math.hypot(a.x-s.player.x,a.y-s.player.y);
   const visible=a.alert>20?'Parece alerta y pendiente de lo que ocurre a su alrededor.':distance<=2?'Está lo bastante cerca como para hablar, si quiere escucharte.':'No podés distinguir mucho más desde esta distancia.';
-  addLog(s,visible,'action');
+  addLog(s,visible,'perception');
   for(const q of s.quests.filter(q=>q.status==='accepted'&&q.objectiveType==='investigate_and_report'&&q.progress===0&&q.giverId!==a.id)){
    q.progress=1;q.evidence='actor:'+a.id;
-   addLog(s,'Tu observación de '+a.name+' queda registrada para el encargo «'+q.title+'».','action');
+   addLog(s,'Tu observación de '+a.name+' queda registrada para el encargo «'+q.title+'».','event');
   }
   return;
  }
  const t=s.selectedTile?tileAt(s,s.selectedTile.x,s.selectedTile.y):tileAt(s,s.player.x,s.player.y);
- addLog(s,t?({road:'La calle está gastada por botas y vehículos de carga.',building:'Una estructura industrial bloquea el paso.',door:'Una puerta reforzada. No sabes qué hay detrás.',scrap:'Restos de maquinaria abandonada.',grass:'Vegetación enferma crece entre el hormigón.',wall:'Un muro de contención.',water:'Agua estancada.',floor:'Una superficie de hormigón marcada por el uso.'}[t.terrain]??'No distinguís nada concluyente.'):'No hay nada claro que examinar.','action');
+ addLog(s,t?({road:'La calle está gastada por botas y vehículos de carga.',building:'Una estructura industrial bloquea el paso.',door:'Una puerta reforzada. No sabes qué hay detrás.',scrap:'Restos de maquinaria abandonada.',grass:'Vegetación enferma crece entre el hormigón.',wall:'Un muro de contención.',water:'Agua estancada.',floor:'Una superficie de hormigón marcada por el uso.'}[t.terrain]??'No distinguís nada concluyente.'):'No hay nada claro que examinar.','perception');
  if(t){
   for(const q of s.quests.filter(q=>q.status==='accepted'&&q.objectiveType==='investigate_and_report'&&q.progress===0)){
    q.progress=1;q.evidence='tile:'+t.x+','+t.y+':'+t.terrain;
-   addLog(s,'La observación del terreno queda registrada para el encargo «'+q.title+'».','action');
+   addLog(s,'La observación del terreno queda registrada para el encargo «'+q.title+'».','event');
   }
  }
 }
@@ -130,7 +130,7 @@ export function talk(s:WorldState,text?:string,options:{suppressDialogue?:boolea
   const rel=a.social.relationships.player;
   if(rel){rel.trust=Math.min(100,rel.trust+8);rel.respect=Math.min(100,rel.respect+5);rel.debt=Math.min(100,rel.debt+6);}
   recordSocialEvent(a,{kind:'help',targetId:'player',tick:s.tick,severity:16,description:'El jugador entregó '+item.name+' para el encargo «'+q.title+'».',interpretation:'cumplió una entrega'});
-  addLog(s,'Entregaste '+item.name+' a '+a.name+'. Encargo completado: «'+q.title+'».','action');tickWorld(s);return;
+  addLog(s,'Entregaste '+item.name+' a '+a.name+'. Encargo completado: «'+q.title+'».','event');tickWorld(s);return;
  }
  const reportable=s.quests.filter(q=>q.giverId===a.id&&q.status==='accepted'&&['investigate_and_report','collect_scrap','clear_obstacle'].includes(q.objectiveType)&&q.progress>0);
  if(reportable.length&&/(informo|investigue|encontre|volvi|tengo informacion|te cuento|ya investigue|ya volvi|esto es lo que vi)/.test(clean)){
@@ -141,17 +141,17 @@ export function talk(s:WorldState,text?:string,options:{suppressDialogue?:boolea
    const rel=a.social.relationships.player;
    if(rel){rel.trust=Math.min(100,rel.trust+8);rel.respect=Math.min(100,rel.respect+5);rel.debt=Math.min(100,rel.debt+6);}
    recordSocialEvent(a,{kind:'help',targetId:'player',tick:s.tick,severity:16,description:'El jugador cumplió el encargo «'+q.title+'» y volvió con una observación.',interpretation:'cumplió un compromiso'});
-   addLog(s,'Encargo completado: «'+q.title+'». La observación registrada fue aceptada por '+a.name+'.','action');
+   addLog(s,'Encargo completado: «'+q.title+'». La observación registrada fue aceptada por '+a.name+'.','event');
   }
   tickWorld(s);return;
  }
  if(text?.trim()&&!event)recordSocialEvent(a,{kind:'conversation',targetId:'player',tick:s.tick,severity:8,description:'El jugador me dijo: «'+text.trim().slice(0,240)+'»',interpretation:'interacción recordada'});
  const offered=s.quests.find(q=>q.giverId===a.id&&q.status==='offered');
  if(/\b(acepto|aceptar|acepto el encargo|me encargo|lo hare|lo hago)\b/.test(clean)){
-  if(offered){offered.status='accepted';offered.acceptedAtTick=s.tick;offered.deadlineTick=s.tick+120+offered.requirements.length*24;addLog(s,'Aceptaste el encargo de '+a.name+': '+offered.title+'. Objetivo actual: '+offered.objective+'.','action');tickWorld(s);return;}
+  if(offered){offered.status='accepted';offered.acceptedAtTick=s.tick;offered.deadlineTick=s.tick+120+offered.requirements.length*24;addLog(s,'Aceptaste el encargo de '+a.name+': '+offered.title+'. Objetivo actual: '+offered.objective+'.','event');tickWorld(s);return;}
   addLog(s,a.name+' no te ha ofrecido ningún encargo que puedas aceptar.','warning');return;
  }
- if(/\b(rechazo|no acepto|no me interesa|dejalo)\b/.test(clean)&&offered){offered.status='declined';addLog(s,'Rechazaste el encargo de '+a.name+'. Su objetivo personal continúa.','action');tickWorld(s);return;}
+ if(/\b(rechazo|no acepto|no me interesa|dejalo)\b/.test(clean)&&offered){offered.status='declined';addLog(s,'Rechazaste el encargo de '+a.name+'. Su objetivo personal continúa.','event');tickWorld(s);return;}
  const asksForWork=/\b(ayuda|ayudar|ayudame|ayudo|ayudarte|ayudarte con eso|puedo ayudarte|queres que te ayude|quieres que te ayude|te doy una mano|trabajo|encargo|mision|misiones|que necesitas|que necesitas de mi|en que puedo ayudar|tenes algun problema|tienes algun problema)\b/.test(clean);
  if(event){
   const publicInsult=/(delante de todos|en público|frente a todos|con todos mirando)/i.test(text??'');

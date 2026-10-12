@@ -10,3 +10,6 @@
 .quest-list{display:grid;gap:7px;margin:0 12px 12px}.quest-card{padding:9px 10px;border:1px solid var(--line,#343630);background:rgba(255,255,255,.025);display:grid;gap:5px}.quest-card strong{font-size:11px;letter-spacing:.03em}.quest-card small{color:var(--accent,#d4b56a);font-size:9px;letter-spacing:.12em}.quest-card p{margin:0;font-size:11px;line-height:1.4}.quest-card span{font-size:10px;line-height:1.4;color:var(--muted,#a5a69e)}
 
 .ai-status{font-size:11px;line-height:1.45;color:var(--muted,#9aa3aa);padding:6px 0;overflow-wrap:anywhere}
+
+/* Registro del mundo: solo señales relevantes, separadas por categoría. */
+.log-entry{display:flex;flex-direction:column;gap:5px;padding:10px 0;border-bottom:1px solid #303638;min-height:0;grid-template-columns:none}.log-entry-meta{display:flex;align-items:center;justify-content:space-between;gap:8px}.log-category{font-size:8px;letter-spacing:.13em;font-weight:700;color:#c7b17d}.log-entry-meta small{font-size:9px;color:#6e7977}.log-entry-text{font-size:11px;line-height:1.55;color:#c1c7c1}.log-entry.danger .log-category,.log-entry.warning .log-category{color:#d78375}.log-entry.feeling .log-category{color:#a99ad2}.log-entry.event .log-category{color:#8fb9a0}.log-entry.dialogue .log-category{color:#91b9cf}.log-empty{font-size:11px;line-height:1.5;padding:14px 0}

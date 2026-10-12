@@ -11,7 +11,7 @@ export interface Actor{id:string;name:string;glyph:string;x:number;y:number;fact
 export interface Item{id:string;name:string;quantity:number;description:string;}
 export interface Player{x:number;y:number;health:number;sanity:number;hunger:number;inventory:Item[];}
 export interface WorldState{seed:number;width:number;height:number;tiles:Tile[];actors:Actor[];player:Player;tick:number;day:number;minute:number;selectedActorId:string|null;selectedTile:{x:number;y:number}|null;log:LogEntry[];quests:NpcQuest[];running:boolean;}
-export interface LogEntry{tick:number;text:string;kind:'world'|'action'|'warning'|'dialogue';}
+export interface LogEntry{tick:number;text:string;kind:'world'|'action'|'warning'|'dialogue'|'perception'|'feeling'|'event'|'danger';}
 export const indexOf=(x:number,y:number,width:number)=>y*width+x;
 export const distance=(a:{x:number;y:number},b:{x:number;y:number})=>Math.hypot(a.x-b.x,a.y-b.y);
 

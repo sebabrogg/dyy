@@ -135,7 +135,7 @@ export function talk(s:WorldState,text?:string,options:{suppressDialogue?:boolea
   addLog(s,'Entregaste '+item.name+' a '+a.name+'. Encargo completado: «'+q.title+'».','event');tickWorld(s);return;
  }
  const reportable=s.quests.filter(q=>q.giverId===a.id&&q.status==='accepted'&&['investigate_and_report','collect_scrap','clear_obstacle'].includes(q.objectiveType)&&q.progress>0);
- if(reportable.length&&/(informo|investigue|encontre|volvi|tengo informacion|te cuento|ya investigue|ya volvi|esto es lo que vi)/.test(clean)){
+ if(reportable.length&&/(informo|investigue|encontre|volvi|tengo informacion|te cuento|ya investigue|ya volvi|esto es lo que vi|termine|lo hice|ya esta|hecho|objetivo cumplido|encargo cumplido|listo|lo consegui)/.test(clean)){
   for(const q of reportable){
    q.status='completed';
    a.lifeMission.progress=Math.min(a.lifeMission.steps.length,a.lifeMission.progress+1);

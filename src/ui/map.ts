@@ -40,3 +40,10 @@ export function tileFromPointer(canvas:HTMLCanvasElement,s:WorldState,clientX:nu
  const x=Math.round(px/tileW+py/tileH+s.player.x),y=Math.round(py/tileH-px/tileW+s.player.y);
  return tileAt(s,x,y)?{x,y}:null;
 }
+
+export function drawOverviewMap(canvas:HTMLCanvasElement,s:WorldState):void{
+ const ctx=canvas.getContext('2d');if(!ctx)return;const rect=canvas.getBoundingClientRect(),dpr=Math.min(window.devicePixelRatio||1,2);if(canvas.width!==Math.round(rect.width*dpr)||canvas.height!==Math.round(rect.height*dpr)){canvas.width=Math.round(rect.width*dpr);canvas.height=Math.round(rect.height*dpr);}ctx.setTransform(dpr,0,0,dpr,0,0);ctx.fillStyle='#101516';ctx.fillRect(0,0,rect.width,rect.height);const cell=Math.max(2,Math.min((rect.width-24)/s.width,(rect.height-24)/s.height));const ox=(rect.width-s.width*cell)/2,oy=(rect.height-s.height*cell)/2;const colors:Record<string,string>={floor:'#353d3f',road:'#252d30',wall:'#6c7477',building:'#596466',door:'#d69a62',scrap:'#65715c',grass:'#3d5948',water:'#294653'};
+ for(const t of s.tiles){const x=ox+t.x*cell,y=oy+t.y*cell;if(!t.explored){ctx.fillStyle='#15191a';ctx.fillRect(x,y,cell,cell);continue;}ctx.fillStyle=colors[t.terrain]??'#303638';ctx.fillRect(x,y,Math.ceil(cell),Math.ceil(cell));if(cell>=7&&(t.terrain==='building'||t.terrain==='door')){ctx.fillStyle=t.terrain==='door'?'#171b1b':'#e0e5df';ctx.font='bold '+Math.max(7,cell*.72)+'px monospace';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(t.terrain==='door'?'D':'H',x+cell/2,y+cell/2);}}
+ for(const a of s.actors){if(!a.alive||!canSee(s,a))continue;const t=tileAt(s,a.x,a.y);if(!t?.explored)continue;ctx.fillStyle=a.faction==='UAC'?'#d09a75':a.faction==='EME'?'#8fa7b5':'#b2c28b';ctx.beginPath();ctx.arc(ox+(a.x+.5)*cell,oy+(a.y+.5)*cell,Math.max(2,cell*.28),0,Math.PI*2);ctx.fill();}
+ const px=ox+(s.player.x+.5)*cell,py=oy+(s.player.y+.5)*cell;ctx.fillStyle='#f4f1e8';ctx.strokeStyle='#a54b43';ctx.lineWidth=2;ctx.beginPath();ctx.arc(px,py,Math.max(3,cell*.4),0,Math.PI*2);ctx.fill();ctx.stroke();
+}

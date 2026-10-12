@@ -66,3 +66,12 @@ test('la evidencia no puede obtenerse inspeccionando únicamente al NPC que enca
  selectActor(s,giver.id);inspect(s);
  assert.equal(s.quests[0]!.progress,0);
 });
+
+test('un encargo con evidencia se cierra al informar con lenguaje natural',()=>{
+ const s=generateWorld(906),giver=s.actors[0]!;
+ s.player.x=giver.x+1;s.player.y=giver.y;selectActor(s,giver.id);
+ s.quests.push({id:'quest-report',giverId:giver.id,missionId:giver.lifeMission.id,title:'Limpiar el acceso',description:'Retira los escombros',objective:'Despeja el acceso y vuelve a informar',requirements:[],reward:'Información',status:'accepted',offeredAtTick:s.tick,acceptedAtTick:s.tick,deadlineTick:s.tick+100,objectiveType:'clear_obstacle',progress:1,evidence:'cleared:2,2',requiredItemId:null});
+ talk(s,'Te informo: ya terminé el encargo.');
+ assert.equal(s.quests.find(q=>q.id==='quest-report')!.status,'completed');
+ assert.ok(s.log.some(entry=>entry.text.includes('Encargo completado')&&entry.text.includes('Limpiar el acceso')));
+});

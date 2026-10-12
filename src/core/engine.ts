@@ -77,7 +77,7 @@ export function moveTo(s:WorldState,x:number,y:number):void{
 }
 export function walkStep(s:WorldState,x:number,y:number):boolean{if(Math.abs(x-s.player.x)+Math.abs(y-s.player.y)!==1||!walkable(s,x,y))return false;s.player.x=x;s.player.y=y;s.selectedTile={x,y};s.selectedActorId=null;refreshVisibility(s);return true;}
 export function advanceWorld(s:WorldState):void{tickWorld(s);s.elapsedWorldMs=(s.elapsedWorldMs??0)+60000;const debt=(s.player.sleepDebtMinutes??0)+1;s.player.sleepDebtMinutes=debt;const previousHunger=s.player.hunger;s.player.hunger=Math.min(100,s.player.hunger+.25);if(previousHunger<70&&s.player.hunger>=70)addLog(s,'El hambre empieza a distraerte.','feeling');if(previousHunger<90&&s.player.hunger>=90)addLog(s,'El hambre te debilita; cuesta ignorarla.','feeling');if(debt>720&&debt%30===0)s.player.sanity=Math.max(0,s.player.sanity-1);}
-export function sleep(s:WorldState):void{const near=[tileAt(s,s.player.x,s.player.y),tileAt(s,s.player.x+1,s.player.y),tileAt(s,s.player.x-1,s.player.y),tileAt(s,s.player.x,s.player.y+1),tileAt(s,s.player.x,s.player.y-1)];if(!near.some(t=>t?.terrain==="door"||t?.terrain==="building")){addLog(s,"No puedes dormir a la intemperie. Busca un refugio o una entrada protegida.","warning");return;}s.player.sleepDebtMinutes=0;s.player.sanity=Math.min(100,s.player.sanity+12);s.player.hunger=Math.min(100,s.player.hunger+4);for(let minute=0;minute<480;minute++){tickWorld(s);s.elapsedWorldMs=(s.elapsedWorldMs??0)+60000;if(s.player.health<=0)break;}s.player.hunger=Math.min(100,s.player.hunger+8);s.lastClockUpdate=Date.now();addLog(s,"Dormiste ocho horas en un lugar protegido. El mundo siguió activo mientras descansabas.","feeling");}
+export function sleep(s:WorldState,hours=8):void{const near=[tileAt(s,s.player.x,s.player.y),tileAt(s,s.player.x+1,s.player.y),tileAt(s,s.player.x-1,s.player.y),tileAt(s,s.player.x,s.player.y+1),tileAt(s,s.player.x,s.player.y-1)];if(!near.some(t=>t?.terrain==="door"||t?.terrain==="building")){addLog(s,"No hay una zona de descanso protegida al alcance.","warning");return;}const duration=Math.max(1,Math.min(12,Math.floor(hours)))*60;s.player.sleepDebtMinutes=0;s.player.sanity=Math.min(100,s.player.sanity+Math.round(duration/60*1.5));for(let minute=0;minute<duration;minute++){tickWorld(s);s.elapsedWorldMs=(s.elapsedWorldMs??0)+60000;if(s.player.health<=0)break;}s.player.hunger=Math.min(100,s.player.hunger+Math.ceil(duration/60*1.5));s.lastClockUpdate=Date.now();addLog(s,"Tu personaje descansó "+Math.floor(duration/60)+" "+(duration===60?"hora":"horas")+". El mundo siguió activo mientras dormía.","feeling");}
 export function waitTurn(s:WorldState):void{tickWorld(s);addLog(s,'Dejas pasar cinco minutos. El barrio sigue funcionando sin pedirte permiso.','action');}
 export function inspect(s:WorldState):void{
  const a=s.selectedActorId?s.actors.find(v=>v.id===s.selectedActorId):undefined;
@@ -178,7 +178,7 @@ export function talk(s:WorldState,text?:string,options:{suppressDialogue?:boolea
  if(!options.suppressDialogue)addLog(s,a.name+': «'+response+'»','dialogue');
  if(asksForWork&&!['insult','threat'].includes(event?.kind??'')){
   const quest=questOfferFor(s,a);
-  if(quest){s.quests.push(quest);addLog(s,a.name+' te propone un encargo: '+quest.title+'. '+quest.description+' Para aceptarlo, responde «acepto».','dialogue');}
+  if(quest){s.quests.push(quest);addLog(s,a.name+' te propone un encargo: '+quest.title+'. '+quest.description,'dialogue');}
   else addLog(s,a.name+' no te confía ningún encargo por ahora.','world');
  }
 }

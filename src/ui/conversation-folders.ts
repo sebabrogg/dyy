@@ -54,7 +54,11 @@ export function initConversationFolders() {
       lastNpc = item.speaker;
     }
     if (lastNpc && pendingPlayerCards.length) next.get(lastNpc)?.push(...pendingPlayerCards);
-    conversations = next;
+    for (const [name, cards] of next) {
+      const existing = conversations.get(name) ?? [];
+      const known = new Set(existing.map(card => card.outerHTML));
+      conversations.set(name, [...existing, ...cards.filter(card => !known.has(card.outerHTML))]);
+    }
     if (activeName && !conversations.has(activeName)) activeName = null;
     renderActive();
   };

@@ -59,7 +59,7 @@ export function inspect(s:WorldState):void{
  const t=s.selectedTile?tileAt(s,s.selectedTile.x,s.selectedTile.y):tileAt(s,s.player.x,s.player.y);
  addLog(s,t?({road:'La calle está gastada por botas y vehículos de carga.',building:'Una estructura industrial bloquea el paso.',door:'Una puerta reforzada. No sabes qué hay detrás.',scrap:'Restos de maquinaria abandonada.',grass:'Vegetación enferma crece entre el hormigón.',wall:'Un muro de contención.',water:'Agua oscura y contaminada.',floor:'Hormigón húmedo, grietas y marcas de arrastre.'}[t.terrain]):'No hay nada que observar.','action');
 }
-function respondToIntent(text:string,name:string,disposition:Actor['disposition']):string{
+export function respondToIntent(text:string,name:string,disposition:Actor['disposition']):string{
  const t=text.toLocaleLowerCase('es').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
  const guarded=disposition==='wary'||disposition==='hostile';
  if(/\b(ayuda|ayudame|necesito ayuda|me das una mano|echame una mano)\b/.test(t))return guarded?'No voy a meterme en tus problemas. Ni siquiera sé quién sos.':'¿Qué necesitás? Sé concreto. No tengo tiempo para perder.';

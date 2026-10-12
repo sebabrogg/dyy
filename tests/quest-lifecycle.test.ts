@@ -7,7 +7,7 @@ test('un encargo aceptado fracasa si muere quien lo ofreció y el fallo queda re
  const s=generateWorld(901),giver=s.actors[0]!;
  const relation=giver.social.relationships.player!;
  relation.trust=50;relation.respect=40;relation.resentment=10;
- s.quests.push({id:'quest-test',giverId:giver.id,missionId:giver.lifeMission.id,title:'Encontrar suministros',description:'Recuperar suministros',objective:'Encontrar suministros',requirements:[],reward:'Información',status:'accepted',offeredAtTick:s.tick,acceptedAtTick:s.tick});
+ s.quests.push({id:'quest-test',giverId:giver.id,missionId:giver.lifeMission.id,title:'Encontrar suministros',description:'Recuperar suministros',objective:'Encontrar suministros',requirements:[],reward:'Información',status:'accepted',offeredAtTick:s.tick,acceptedAtTick:s.tick,deadlineTick:s.tick+100});
  giver.alive=false;
  waitTurn(s);
  assert.equal(s.quests[0]!.status,'failed');
@@ -21,9 +21,20 @@ test('un encargo aceptado fracasa si muere quien lo ofreció y el fallo queda re
 
 test('un encargo ofrecido pero no aceptado no fracasa automáticamente por la muerte del NPC',()=>{
  const s=generateWorld(902),giver=s.actors[0]!;
- s.quests.push({id:'quest-offered',giverId:giver.id,missionId:giver.lifeMission.id,title:'Un encargo',description:'Descripción',objective:'Objetivo',requirements:[],reward:'Nada',status:'offered',offeredAtTick:s.tick,acceptedAtTick:null});
+ s.quests.push({id:'quest-offered',giverId:giver.id,missionId:giver.lifeMission.id,title:'Un encargo',description:'Descripción',objective:'Objetivo',requirements:[],reward:'Nada',status:'offered',offeredAtTick:s.tick,acceptedAtTick:null,deadlineTick:s.tick+100});
  giver.alive=false;
  waitTurn(s);
  assert.equal(s.quests[0]!.status,'offered');
  assert.equal(s.log.some(entry=>entry.text.includes('ha fracasado')) ,false);
+});
+
+test('un encargo aceptado fracasa al vencer su propio plazo y deja consecuencias sociales',()=>{
+ const s=generateWorld(903),giver=s.actors[0]!;
+ const relation=giver.social.relationships.player!;
+ relation.trust=50;relation.respect=40;relation.resentment=10;
+ s.quests.push({id:'quest-expired',giverId:giver.id,missionId:giver.lifeMission.id,title:'Llegar a tiempo',description:'Descripción',objective:'Objetivo',requirements:[],reward:'Nada',status:'accepted',offeredAtTick:s.tick,acceptedAtTick:s.tick,deadlineTick:s.tick});
+ waitTurn(s);
+ assert.equal(s.quests[0]!.status,'failed');
+ assert.ok(s.log.some(entry=>entry.text.includes('dejaste vencer el plazo')));
+ assert.equal(relation.trust,42);assert.equal(relation.respect,35);assert.ok(relation.resentment>=17.9&&relation.resentment<=18);
 });

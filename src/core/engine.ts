@@ -17,9 +17,12 @@ function resolveQuestConsequences(s:WorldState):void{
  for(const quest of s.quests){
   if(quest.status!=='accepted')continue;
   const giver=s.actors.find(a=>a.id===quest.giverId);
-  if(giver&&giver.alive)continue;
+  const deadOrMissing=!giver||!giver.alive;
+  const expired=s.tick>quest.deadlineTick;
+  if(!deadOrMissing&&!expired)continue;
   quest.status='failed';
-  addLog(s,'El encargo «'+quest.title+'» ha fracasado: '+(giver?'quien te lo confió ha muerto.':'quien te lo confió ya no está disponible.'),'warning');
+  const reason=deadOrMissing?(giver?'quien te lo confió ha muerto.':'quien te lo confió ya no está disponible.'):'dejaste vencer el plazo.';
+  addLog(s,'El encargo «'+quest.title+'» ha fracasado: '+reason,'warning');
   if(giver){
    const rel=giver.social.relationships.player;
    if(rel){

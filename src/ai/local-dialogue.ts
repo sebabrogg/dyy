@@ -7,7 +7,7 @@ export const LOCAL_AI_TIMEOUT_MS=9000;
 export interface DialogueContext {
  actorName:string; faction:string; personality:string; goal:string;
  disposition:string; relationship:string; memories:string[];
- playerLine:string; engineLine:string;
+ playerLine:string; engineLine:string; internalMind:string; lifeMission:string;
 }
 
 export function buildDialogueContext(actor:Actor,playerLine:string,engineLine:string):DialogueContext {
@@ -16,26 +16,29 @@ export function buildDialogueContext(actor:Actor,playerLine:string,engineLine:st
   actorName:actor.name,faction:actor.faction,personality:actor.personality,goal:actor.goal,
   disposition:actor.disposition,
   relationship:relation?'confianza '+relation.trust+'/100; hostilidad '+relation.hostility+'/100; resentimiento '+relation.resentment+'/100; miedo '+relation.fear+'/100':'relación desconocida',
-  memories:actor.social.memories.filter(memory=>memory.targetId==='player').slice(-5).map(memory=>memory.description||memory.interpretation),
-  playerLine:playerLine.slice(0,160),engineLine:engineLine.slice(0,240),
+  memories:actor.social.memories.filter(memory=>memory.targetId==='player').slice(-8).map(memory=>memory.description||memory.interpretation),
+  playerLine:playerLine.slice(0,500),engineLine:engineLine.slice(0,240),
+  internalMind:JSON.stringify(actor.mind),lifeMission:JSON.stringify(actor.lifeMission),
  };
 }
 
 export function buildDialogueMessages(context:DialogueContext):Array<{role:'system'|'user';content:string}> {
  const system=[
   'Eres la voz de un NPC de Dysto, un RPG distópico. Habla en español rioplatense natural, sin exagerar el lunfardo.',
-  'Expresa la intención de la respuesta base con la voz y personalidad del personaje.',
-  'No cambies el significado, la postura, la hostilidad ni la disposición de la respuesta base. No perdones, aceptes, amenaces ni reveles información nueva que la respuesta base no contenga.',
-  'No inventes hechos del mundo, recuerdos, objetos, acciones ni conocimientos. Los datos de contexto son límites, no una invitación a exponerlos.',
+  'Interpreta el mensaje del jugador como este personaje concreto. Decide por ti mismo qué piensa, siente, quiere comunicar, ocultar, negar o preguntar, usando su personalidad, biografía interna, memoria, conocimientos, objetivos y relación con el jugador.',
+  'No hay respuesta base ni diálogo prefabricado. No reveles datos privados solo porque estén en tu contexto; decide si este personaje los compartiría en esta situación.',
+  'No afirmes como hechos cosas que no estén respaldadas por el contexto. Puedes mentir, equivocarte, evadir o expresar incertidumbre si encaja con el personaje, pero no cambies el estado real del mundo.',
   'Devuelve solo lo que diría el personaje, en una o dos frases breves. Sin etiquetas, explicaciones, comillas ni narración externa.',
  ].join(' ');
  const user=[
   'PERSONAJE: '+context.actorName,'FACCIÓN: '+context.faction,
   'PERSONALIDAD: '+context.personality,'OBJETIVO: '+context.goal,
   'DISPOSICIÓN: '+context.disposition,'RELACIÓN CON EL JUGADOR: '+context.relationship,
-  'RECUERDOS RELEVANTES: '+(context.memories.join(' | ')||'ninguno registrado'),
-  'EL JUGADOR DIJO: '+context.playerLine,'INTENCIÓN QUE DEBES CONSERVAR: '+context.engineLine,
-  'Reformula la respuesta base con una voz individual, sin añadir hechos.',
+  'RECUERDOS RELEVANTES SOBRE EL JUGADOR: '+(context.memories.join(' | ')||'ninguno registrado'),
+  'CONTEXTO MENTAL INTERNO (no lo recites; úsalo para razonar): '+context.internalMind,
+  'MISIÓN VITAL PRIVADA: '+context.lifeMission,
+  'EL JUGADOR DIJO: '+context.playerLine,
+  'Responde como el personaje, de forma natural y breve. Decide según su mente y la situación, no según una plantilla.',
  ].join('\n');
  return [{role:'system',content:system},{role:'user',content:user}];
 }

@@ -1,5 +1,5 @@
 import './style.css';
-import {formatClock,initializeWorld,inspect,moveTo,selectActor,say,talk,tileAt,useItem,visibleActors,waitTurn} from './core/engine.ts';
+import {formatClock,initializeWorld,inspect,moveTo,selectActor,say,tileAt,useItem,visibleActors,waitTurn} from './core/engine.ts';
 import {generateWorld} from './world/generate.ts';
 import {drawMap,tileFromPointer} from './ui/map.ts';
 import type {WorldState} from './core/types.ts';
@@ -40,14 +40,14 @@ window.addEventListener('keydown',e=>{
  if(['INPUT','TEXTAREA'].includes((e.target as HTMLElement).tagName))return;
  const k=e.key.toLowerCase(),moves:Record<string,[number,number]>={w:[0,-1],s:[0,1],a:[-1,0],d:[1,0],arrowup:[0,-1],arrowdown:[0,1],arrowleft:[-1,0],arrowright:[1,0]};
  if(moves[k]){e.preventDefault();move(...moves[k]!);return;}
- if(k==='e'){if(state.selectedActorId)talk(state);else inspect(state);render();}
+ if(k==='e'){if(state.selectedActorId)$<HTMLInputElement>('say-input').focus();else inspect(state);render();}
  if(k===' '){e.preventDefault();waitTurn(state);render();}
 });
 document.querySelectorAll<HTMLButtonElement>('[data-action]').forEach(b=>b.addEventListener('click',()=>{
  const action=b.dataset.action;
- if(action==='talk')talk(state);else if(action==='inspect')inspect(state);else if(action==='wait')waitTurn(state);else if(action==='use')useItem(state);
+ if(action==='talk')$<HTMLInputElement>('say-input').focus();else if(action==='inspect')inspect(state);else if(action==='wait')waitTurn(state);else if(action==='use')useItem(state);
  render();
 }));
-$('say-form').addEventListener('submit',e=>{e.preventDefault();const input=$<HTMLInputElement>('say-input');const line=input.value.trim();if(!line)return;const actor=state.selectedActorId?state.actors.find(v=>v.id===state.selectedActorId):undefined;say(state,line);input.value='';render();if(!actor||!actor.alive)return;const localHosts=['localhost','127.0.0.1','::1'];if(!localHosts.includes(window.location.hostname)){ $('ai-status').textContent='VOZ LOCAL: ejecuta Dysto en esta PC para conectar Ollama';return;}const reply=latestNpcDialogue(state.log,actor.name);if(!reply)return;const engineLine=reply.text.slice(actor.name.length+3,-1);const originalReply=reply.text;const context=buildDialogueContext(actor,line,engineLine);const status=$<HTMLElement>('ai-status');status.textContent='VOZ LOCAL: probando modelo gratuito…';const isCurrentReply=()=>state.selectedActorId===actor.id&&latestNpcDialogue(state.log,actor.name)===reply;generateLocalNpcLine(context,{onPartial:partial=>{if(!isCurrentReply())return;reply.text=actor.name+': «'+partial+'»';render();}}).then(generated=>{if(!isCurrentReply())return;reply.text=actor.name+': «'+generated+'»';status.textContent='VOZ LOCAL: activa · '+actor.name;render();}).catch(()=>{if(!isCurrentReply())return;reply.text=originalReply;status.textContent='VOZ LOCAL: no disponible · usando motor';render();});});
+$('say-form').addEventListener('submit',e=>{e.preventDefault();const input=$<HTMLInputElement>('say-input');const line=input.value.trim();if(!line)return;const actor=state.selectedActorId?state.actors.find(v=>v.id===state.selectedActorId):undefined;input.value='';if(!actor||!actor.alive)return;const status=$<HTMLElement>('ai-status');say(state,line,{suppressDialogue:true});render();const context=buildDialogueContext(actor,line,'');status.textContent='IA: pensando…';const requestId=Symbol('npc-turn');(window as any).__dystoAiTurn=requestId;const isCurrentReply=()=>((window as any).__dystoAiTurn===requestId)&&state.selectedActorId===actor.id;generateLocalNpcLine(context,{onPartial:partial=>{if(!isCurrentReply())return;const existing=latestNpcDialogue(state.log,actor.name);if(existing)existing.text=actor.name+': «'+partial+'»';else state.log.push({tick:state.tick,text:actor.name+': «'+partial+'»',kind:'dialogue'});render();}}).then(generated=>{if(!isCurrentReply())return;const reply=latestNpcDialogue(state.log,actor.name);if(reply)reply.text=actor.name+': «'+generated+'»';else state.log.push({tick:state.tick,text:actor.name+': «'+generated+'»',kind:'dialogue'});status.textContent='IA LOCAL ACTIVA · '+actor.name;render();}).catch(()=>{if(!isCurrentReply())return;status.textContent='IA NO DISPONIBLE · conversación sin respuesta';render();});});
 window.addEventListener('resize',()=>render());
 render();

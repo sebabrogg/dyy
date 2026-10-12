@@ -80,7 +80,7 @@ export function respondToIntent(text:string,name:string,disposition:Actor['dispo
  return 'No sé qué querés que te diga. ¿Podés ser más claro?';
 }
 
-export function talk(s:WorldState,text?:string):void{
+export function talk(s:WorldState,text?:string,options:{suppressDialogue?:boolean}={}):void{
  const a=s.selectedActorId?s.actors.find(v=>v.id===s.selectedActorId):undefined;
  if(!a||!canSee(s,a)){addLog(s,'No tienes a nadie seleccionado que pueda oírte.','warning');return;}
  if(distance(s.player,a)>2){addLog(s,a.name+' está demasiado lejos para conversar. Acércate primero.','warning');return;}
@@ -105,7 +105,7 @@ export function talk(s:WorldState,text?:string):void{
  tickWorld(s);
  const r=relationshipTo(a);
  const priorRelationship=relationshipTo(a);
- if(!event&&(priorRelationship.hostility>=55||priorRelationship.resentment>=65)){addLog(s,a.name+' te corta antes de que puedas seguir. No tiene interés en hablar contigo.','warning');tickWorld(s);return;}
+ if(!event&&(priorRelationship.hostility>=55||priorRelationship.resentment>=65)&&!options.suppressDialogue){addLog(s,a.name+' te corta antes de que puedas seguir. No tiene interés en hablar contigo.','warning');tickWorld(s);return;}
  let response:string;
  if(event?.kind==='insult')response=r.hostility>=65?'No te lo voy a olvidar. Sal de mi vista.':'¿Te pensás que podés hablarme así?';
  else if(event?.kind==='threat'){const threats=recentThreatCount(a,'player',24,s.tick);const decision=decideNpcBehavior({intent:intentForSocialEvent(event.kind),disposition:a.disposition,traits:a.social.traits,relationship:r,recentThreats:threats,mind:a.mind});response=decision.behavior==='fearful'?'No te acerques. No pienso arriesgarme con vos.':decision.behavior==='defend'?'Se terminó. Si volvés a amenazarme, me voy a defender.':decision.behavior==='deescalate'?'No quiero problemas. Bajá la voz y alejate.':decision.behavior==='refuse'?'No voy a seguir hablando con alguien que me amenaza.':threats>=2?'Ya te escuché. No vuelvas a amenazarme.':'Amenazame otra vez y vas a ver.';}
@@ -113,7 +113,7 @@ export function talk(s:WorldState,text?:string):void{
  else if(r.hostility>=75||r.resentment>=82)response='No tengo nada que hablar con vos. Andate.';
  else if(r.trust<20)response=respondToIntent(text??'',a.name,a.disposition);
  else response=respondToIntent(text??'',a.name,a.disposition);
- addLog(s,a.name+': «'+response+'»','dialogue');
+ if(!options.suppressDialogue)addLog(s,a.name+': «'+response+'»','dialogue');
  if(asksForWork&&!['insult','threat'].includes(event?.kind??'')){
   const quest=questOfferFor(s,a);
   if(quest){s.quests.push(quest);addLog(s,a.name+' te propone un encargo: '+quest.title+'. '+quest.description+' Para aceptarlo, responde «acepto».','dialogue');}
@@ -121,7 +121,7 @@ export function talk(s:WorldState,text?:string):void{
  }
 }
 export function selectActor(s:WorldState,id:string):void{const a=s.actors.find(v=>v.id===id);if(a&&canSee(s,a)){s.selectedActorId=id;s.selectedTile={x:a.x,y:a.y};}}
-export function say(s:WorldState,text:string):void{const clean=text.trim();if(!clean)return;const a=s.selectedActorId?s.actors.find(v=>v.id===s.selectedActorId):undefined;if(!a||!canSee(s,a)||distance(s.player,a)>2){addLog(s,'Tu voz se pierde entre motores y lluvia. Nadie responde.','action');tickWorld(s);return;}addLog(s,'Tú: «'+clean+'»','dialogue');talk(s,clean);}
+export function say(s:WorldState,text:string,options:{suppressDialogue?:boolean}={}):void{const clean=text.trim();if(!clean)return;const a=s.selectedActorId?s.actors.find(v=>v.id===s.selectedActorId):undefined;if(!a||!canSee(s,a)||distance(s.player,a)>2){addLog(s,'Tu voz se pierde entre motores y lluvia. Nadie responde.','action');tickWorld(s);return;}addLog(s,'Tú: «'+clean+'»','dialogue');talk(s,clean,options);}
 export function useItem(s:WorldState):void{
  const ration=s.player.inventory.find(i=>i.id==='ration'&&i.quantity>0);
  if(ration){ration.quantity--;s.player.hunger=Math.max(0,s.player.hunger-28);tickWorld(s);addLog(s,'Consumes una ración comprimida. El sabor es peor que el hambre.','action');return;}

@@ -7,15 +7,16 @@ const context:DialogueContext={
  actorName:'Marta',faction:'UAC',personality:'desconfiada y orgullosa',
  goal:'proteger el puesto de control',disposition:'hostile',
  relationship:'confianza 10/100; hostilidad 80/100',memories:['el jugador la insultó'],
- playerLine:'Ayudame.',engineLine:'No tengo nada que hablar con vos. Andate.',
+ playerLine:'Ayudame.',engineLine:'',internalMind:'{\"trauma\":[],\"traits\":{}}',lifeMission:'{\"title\":\"proteger el puesto\"}',
 };
 
-test('el prompt limita al modelo a expresar una intención ya decidida por el motor',()=>{
+test('el prompt deja decidir al modelo desde la mente interna sin respuesta prefabricada',()=>{
  const messages=buildDialogueMessages(context);
  assert.equal(messages.length,2);
- assert.match(messages[0]!.content,/No cambies el significado/);
- assert.match(messages[0]!.content,/No inventes hechos/);
- assert.match(messages[1]!.content,/INTENCIÓN QUE DEBES CONSERVAR/);
+ assert.match(messages[0]!.content,/No hay respuesta base ni diálogo prefabricado/);
+ assert.match(messages[0]!.content,/No afirmes como hechos/);
+ assert.match(messages[1]!.content,/CONTEXTO MENTAL INTERNO/);
+ assert.match(messages[1]!.content,/MISIÓN VITAL PRIVADA/);
  assert.match(messages[1]!.content,/Marta/);
 });
 

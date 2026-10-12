@@ -4,11 +4,14 @@ import {generateWorld} from './world/generate.ts';
 import {drawMap,tileFromPointer} from './ui/map.ts';
 import type {WorldState} from './core/types.ts';
 import {buildDialogueContext,generateLocalNpcLine} from './ai/local-dialogue.ts';
+import {decodeSave,encodeSave,SAVE_STORAGE_KEY} from './core/save.ts';
 
 const state:WorldState=generateWorld();
 const $=<T extends HTMLElement>(id:string)=>document.getElementById(id) as T;
 const canvas=$<HTMLCanvasElement>('world-map');
-initializeWorld(state);
+let restoredOnStartup=false;
+try{const saved=localStorage.getItem(SAVE_STORAGE_KEY);if(saved){Object.assign(state,decodeSave(saved));restoredOnStartup=true;}}catch(error){console.error('No se pudo restaurar la partida:',error);}
+if(!restoredOnStartup)initializeWorld(state);
 function render(){
  drawMap(canvas,state);
  $('clock').textContent=formatClock(state);$('seed-label').textContent='SEED '+state.seed.toString(16).toUpperCase().padStart(8,'0');
@@ -48,6 +51,8 @@ document.querySelectorAll<HTMLButtonElement>('[data-action]').forEach(b=>b.addEv
  if(action==='talk')$<HTMLInputElement>('say-input').focus();else if(action==='inspect')inspect(state);else if(action==='wait')waitTurn(state);else if(action==='use')useItem(state);
  render();
 }));
+$('save-game').addEventListener('click',()=>{const status=$<HTMLElement>('ai-status');try{localStorage.setItem(SAVE_STORAGE_KEY,encodeSave(state));status.textContent='PARTIDA GUARDADA · recuerdos y relaciones preservados.';}catch(error){status.textContent='ERROR AL GUARDAR · '+(error instanceof Error?error.message:String(error));}});
+$('load-game').addEventListener('click',()=>{const status=$<HTMLElement>('ai-status');try{const saved=localStorage.getItem(SAVE_STORAGE_KEY);if(!saved)throw new Error('No existe una partida guardada.');const restored=decodeSave(saved);Object.assign(state,restored);(window as any).__dystoAiTurn=Symbol('load-save');status.textContent='PARTIDA CARGADA · mundo y memoria restaurados.';render();}catch(error){status.textContent='ERROR AL CARGAR · '+(error instanceof Error?error.message:String(error));}});
 $('say-form').addEventListener('submit',e=>{e.preventDefault();const input=$<HTMLInputElement>('say-input');const line=input.value.trim();if(!line)return;const status=$<HTMLElement>('ai-status');const actor=state.selectedActorId?state.actors.find(v=>v.id===state.selectedActorId):undefined;if(!actor||!actor.alive){status.textContent='NO SE ENVIÓ · seleccioná un NPC en el mapa antes de hablar.';return;}input.value='';const logStart=state.log.length;say(state,line,{suppressDialogue:true});const engineOutcome=state.log.slice(logStart).map(entry=>entry.text).join(' | ');render();const context=buildDialogueContext(actor,line,engineOutcome);const replyEntry:WorldState['log'][number]={tick:state.tick,text:actor.name+': «…»',kind:'dialogue'};state.log.push(replyEntry);const requestId=Symbol('npc-turn');(window as any).__dystoAiTurn=requestId;const isCurrentReply=()=>((window as any).__dystoAiTurn===requestId);status.textContent='IA LOCAL · conectando con Ollama…';generateLocalNpcLine(context,{onStatus:message=>{if(isCurrentReply())status.textContent=message;},onPartial:partial=>{if(!isCurrentReply())return;replyEntry.text=actor.name+': «'+partial+'»';render();}}).then(generated=>{if(!isCurrentReply())return;replyEntry.text=actor.name+': «'+generated+'»';status.textContent='IA LOCAL ACTIVA · respondió '+actor.name;render();}).catch(error=>{if(!isCurrentReply())return;const detail=error instanceof Error?error.message:String(error);const connectionHint=error instanceof TypeError?' No se pudo alcanzar el puente local: en la PC donde abrís Dysto ejecutá npm run ai:bridge desde la carpeta del proyecto y dejá esa terminal abierta.':' Modelo requerido: qwen2.5:3b; comprobá http://127.0.0.1:11435/health.';status.textContent='FALLO DE IA · '+detail+'.'+connectionHint;render();});});
 window.addEventListener('resize',()=>render());
 render();

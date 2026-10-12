@@ -124,3 +124,80 @@ export function summarizeRelationship(actor:Actor,targetId='player'):string {
   if(r.debt>=35&&r.hostility>25)return 'te debe algo, pero mantiene su hostilidad';
   return 'mantiene una relación ambigua o distante';
 }
+
+import {distance,indexOf,type WorldState,type SocialKnowledge} from './types.ts';
+
+export interface ObservedSocialEvent {
+  eventId:string;
+  sourceId:string;
+  targetId:string;
+  kind:SocialEventKind;
+  tick:number;
+  severity:number;
+  description:string;
+  public?:boolean;
+}
+
+const OPAQUE=new Set(['wall','building']);
+function hasLineOfSight(world:WorldState,from:{x:number;y:number},to:{x:number;y:number}):boolean{
+  const dx=to.x-from.x,dy=to.y-from.y,steps=Math.max(Math.abs(dx),Math.abs(dy));
+  if(steps<=1)return true;
+  for(let i=1;i<steps;i++){
+    const x=Math.round(from.x+dx*i/steps),y=Math.round(from.y+dy*i/steps);
+    const tile=world.tiles[indexOf(x,y,world.width)];
+    if(tile&&OPAQUE.has(tile.terrain))return false;
+  }
+  return true;
+}
+function stableHash(value:string):number{
+  let h=2166136261;
+  for(let i=0;i<value.length;i++){h^=value.charCodeAt(i);h=Math.imul(h,16777619);}
+  return h>>>0;
+}
+function rememberKnowledge(actor:Actor,entry:SocialKnowledge):boolean{
+  if(actor.social.knowledge.some(k=>k.eventId===entry.eventId))return false;
+  actor.social.knowledge.push(entry);
+  if(actor.social.knowledge.length>120)actor.social.knowledge.shift();
+  const polarity=entry.kind==='insult'||entry.kind==='threat'||entry.kind==='betrayal'?-1:entry.kind==='help'||entry.kind==='saved'?1:0;
+  if(polarity){
+    const previous=actor.social.reputation[entry.subjectId]??0;
+    actor.social.reputation[entry.subjectId]=Math.max(-100,Math.min(100,previous+polarity*entry.confidence*(entry.kind==='betrayal'?1.2:0.7)));
+  }
+  return true;
+}
+
+/** Record only actors who could plausibly perceive both sides of an event. No omniscient world broadcast. */
+export function recordObservedSocialEvent(world:WorldState,event:ObservedSocialEvent):string[]{
+  const sourceActor=world.actors.find(a=>a.id===event.sourceId);
+  const sourcePosition=event.sourceId==='player'?world.player:sourceActor;
+  const target=world.actors.find(a=>a.id===event.targetId);
+  if(!sourcePosition||!target)return [];
+  const witnesses:string[]=[];
+  for(const observer of world.actors){
+    if(!observer.alive||observer.id===sourceActor?.id||observer.id===target.id)continue;
+    if(distance(observer,sourcePosition)>5||distance(observer,target)>5)continue;
+    if(!hasLineOfSight(world,observer,sourcePosition)||!hasLineOfSight(world,observer,target))continue;
+    const loyalty=observer.faction===target.faction?8:0;
+    const bias=(observer.social.traits.susceptibility-50)*.18+loyalty;
+    const interpretation=bias>8?'lo interpreta como una ofensa grave':bias< -5?'cree que el conflicto está exagerado':'no conoce toda la historia';
+    const entry:SocialKnowledge={eventId:event.eventId,subjectId:event.sourceId,targetId:event.targetId,kind:event.kind,tick:event.tick,confidence:Math.max(35,Math.min(98,82+bias)),source:'witness',interpretation,hops:0};
+    if(rememberKnowledge(observer,entry))witnesses.push(observer.id);
+  }
+  return witnesses;
+}
+
+/** Share one known event with one existing contact. Rumors lose confidence and can be interpreted through the teller's bias. */
+export function shareSocialRumor(world:WorldState,fromId:string,toId:string,eventId:string):boolean{
+  const from=world.actors.find(a=>a.id===fromId),to=world.actors.find(a=>a.id===toId);
+  if(!from||!to||!from.alive||!to.alive||fromId===toId)return false;
+  const strength=from.social.contacts[toId]??0;
+  if(strength<35||distance(from,to)>8)return false;
+  const known=from.social.knowledge.find(k=>k.eventId===eventId);
+  if(!known||known.hops>=2||to.social.knowledge.some(k=>k.eventId===eventId))return false;
+  const hash=stableHash(eventId+'|'+fromId+'|'+toId);
+  if(hash%100>=strength)return false;
+  const distortion=((hash>>>8)%21)-10;
+  const confidence=Math.max(10,Math.min(85,Math.round(known.confidence*.72+distortion)));
+  const bias=to.social.traits.susceptibility>65?'lo cree sin conocer todos los detalles':to.social.traits.susceptibility<30?'desconfía del rumor':'lo considera posible, no confirmado';
+  return rememberKnowledge(to,{...known,confidence,source:'rumor',interpretation:bias,hops:known.hops+1});
+}

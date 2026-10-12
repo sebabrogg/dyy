@@ -1,6 +1,6 @@
 import {stream} from './rng.ts';
 import {distance,indexOf,type Actor,type LogEntry,type WorldState} from './types.ts';
-import {ageSocialMemories,classifyUtterance,recordSocialEvent,relationshipTo} from './social.ts';
+import {ageSocialMemories,classifyUtterance,recordSocialEvent,recordObservedSocialEvent,shareSocialRumor,relationshipTo} from './social.ts';
 const WALKABLE=new Set(['floor','road','scrap','grass','door']);
 const DIRECTIONS=[[1,0],[-1,0],[0,1],[0,-1]] as const;
 export function tileAt(s:WorldState,x:number,y:number){return x<0||y<0||x>=s.width||y>=s.height?undefined:s.tiles[indexOf(x,y,s.width)];}
@@ -22,6 +22,18 @@ function tickWorld(s:WorldState):void{
   else a.alert=Math.max(0,a.alert-1);
   // A small deterministic idle policy: people reposition only when their local situation permits it.
   if(rng.next()<.18&&a.alert<20&&d>2){const [dx,dy]=rng.pick(DIRECTIONS);const nx=a.x+dx,ny=a.y+dy;if(walkable(s,nx,ny)){a.x=nx;a.y=ny;}}
+ }
+ // Gossip is local, contact-gated, and deterministic. Each actor can pass at most one known event per tick.
+ const socialRng=stream(s.seed,'npc.social.tick.'+s.tick);
+ for(const source of s.actors.filter(v=>v.alive&&v.social.knowledge.length)){
+  for(const contactId of Object.keys(source.social.contacts).sort()){
+   const recipient=s.actors.find(v=>v.id===contactId&&v.alive);
+   if(!recipient||distance(source,recipient)>3||socialRng.next()>=.12)continue;
+   for(const known of [...source.social.knowledge].reverse()){
+    if(shareSocialRumor(s,source.id,recipient.id,known.eventId))break;
+   }
+   break;
+  }
  }
  refreshVisibility(s);
 }
@@ -55,6 +67,7 @@ export function talk(s:WorldState,text?:string):void{
  if(event){
   const publicInsult=/(delante de todos|en público|frente a todos|con todos mirando)/i.test(text??'');
   recordSocialEvent(a,{...event,targetId:'player',tick:s.tick,public:publicInsult,interpretation:'lo percibe como una ofensa directa',sincerity:event.kind==='apology'?35:undefined,repairEffort:0});
+  recordObservedSocialEvent(s,{eventId:'social:'+s.tick+':player:'+a.id+':'+event.kind+':'+s.log.length,sourceId:'player',targetId:a.id,kind:event.kind,tick:s.tick,severity:event.severity??10,description:text??'',public:publicInsult});
   if(event.kind==='threat'){a.alert=Math.min(100,a.alert+20);}
   const r=relationshipTo(a);
   if(r.hostility>=75||r.resentment>=82)a.disposition='hostile';

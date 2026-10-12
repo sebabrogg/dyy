@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {generateWorld} from '../src/world/generate.ts';
-import {recordSocialEvent,relationshipTo,shouldAttack,classifyUtterance,summarizeRelationship,ageSocialMemories} from '../src/core/social.ts';
+import {recordSocialEvent,relationshipTo,shouldAttack,classifyUtterance,summarizeRelationship,ageSocialMemories,recordObservedSocialEvent,shareSocialRumor} from '../src/core/social.ts';
 
 function actor(seed=77){return generateWorld(seed).actors[0]!;}
 
@@ -87,4 +87,52 @@ test('hablar integra insultos en el motor y una frase amable no reinicia la rela
  talk(world,'Buen día');
  assert.equal(a.social.memories.length,1);
  assert.ok(relationshipTo(a).resentment>resentmentAfterInsult-0.01);
+});
+
+test('solo los testigos cercanos con línea de visión conocen un agravio',()=>{
+ const w=generateWorld(31);
+ const target=w.actors[0]!,witness=w.actors[1]!,distant=w.actors[2]!;
+ w.player.x=target.x;w.player.y=target.y;
+ witness.x=target.x+1;witness.y=target.y;
+ distant.x=target.x+12;distant.y=target.y;
+ for(const tile of w.tiles)tile.terrain='floor';
+ const seen=recordObservedSocialEvent(w,{eventId:'evt-1',sourceId:'player',targetId:target.id,kind:'insult',tick:4,severity:20,description:'insulto en voz alta'});
+ assert.ok(seen.includes(witness.id));
+ assert.equal(distant.social.knowledge.some(k=>k.eventId==='evt-1'),false);
+});
+
+test('una pared impide que un NPC observe una interacción',()=>{
+ const w=generateWorld(32),target=w.actors[0]!,witness=w.actors[1]!;
+ w.player.x=target.x;w.player.y=target.y;
+ witness.x=target.x+2;witness.y=target.y;
+ for(const tile of w.tiles)tile.terrain='floor';
+ const wall=w.tiles.find(t=>t.x===target.x+1&&t.y===target.y)!;wall.terrain='wall';
+ const seen=recordObservedSocialEvent(w,{eventId:'evt-wall',sourceId:'player',targetId:target.id,kind:'threat',tick:5,severity:25,description:'amenaza'});
+ assert.equal(seen.includes(witness.id),false);
+});
+
+test('los rumores requieren un contacto explícito, pierden confianza y no se propagan indefinidamente',()=>{
+ const w=generateWorld(33),[a,b,c]=w.actors;
+ assert.ok(a&&b&&c);
+ for(const actor of w.actors){actor.social.contacts={};actor.social.knowledge=[];}
+ a!.social.knowledge.push({eventId:'rumor-1',subjectId:'player',targetId:b!.id,kind:'insult',tick:2,confidence:90,source:'witness',interpretation:'lo vio',hops:0});
+ a!.social.contacts[b!.id]=100;b!.social.contacts[c!.id]=100;
+ b!.x=a!.x+1;b!.y=a!.y;c!.x=b!.x+1;c!.y=b!.y;
+ assert.equal(shareSocialRumor(w,a!.id,b!.id,'rumor-1'),true);
+ const received=b!.social.knowledge.find(k=>k.eventId==='rumor-1')!;
+ assert.equal(received.source,'rumor');
+ assert.ok(received.confidence<90);
+ assert.equal(shareSocialRumor(w,b!.id,c!.id,'rumor-1'),true);
+ const second=c!.social.knowledge.find(k=>k.eventId==='rumor-1')!;
+ assert.equal(second.hops,2);
+ assert.equal(shareSocialRumor(w,c!.id,a!.id,'rumor-1'),false);
+});
+
+test('un rumor no atraviesa una red sin contacto',()=>{
+ const w=generateWorld(34),[a,b]=w.actors;
+ assert.ok(a&&b);
+ a!.social.knowledge.push({eventId:'isolated',subjectId:'player',targetId:b!.id,kind:'betrayal',tick:1,confidence:80,source:'witness',interpretation:'lo vio',hops:0});
+ a!.social.contacts={};
+ assert.equal(shareSocialRumor(w,a!.id,b!.id,'isolated'),false);
+ assert.equal(b!.social.knowledge.some(k=>k.eventId==='isolated'),false);
 });

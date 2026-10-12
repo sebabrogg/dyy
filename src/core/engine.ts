@@ -1,6 +1,6 @@
 import {stream} from './rng.ts';
 import {distance,indexOf,type Actor,type LogEntry,type WorldState} from './types.ts';
-import {ageSocialMemories,classifyUtterance,recordSocialEvent,recordObservedSocialEvent,shareSocialRumor,relationshipTo} from './social.ts';
+import {ageSocialMemories,classifyUtterance,recordSocialEvent,recordObservedSocialEvent,shareSocialRumor,relationshipTo,shouldAttack} from './social.ts';
 const WALKABLE=new Set(['floor','road','scrap','grass','door']);
 const DIRECTIONS=[[1,0],[-1,0],[0,1],[0,-1]] as const;
 export function tileAt(s:WorldState,x:number,y:number){return x<0||y<0||x>=s.width||y>=s.height?undefined:s.tiles[indexOf(x,y,s.width)];}
@@ -18,7 +18,7 @@ function tickWorld(s:WorldState):void{
  for(const a of s.actors.filter(v=>v.alive)){
   ageSocialMemories(a,s.tick);
   const d=distance(s.player,a);
-  if(d<=5){a.lastSeenPlayerTick=s.tick;if(a.disposition==='hostile'&&d<=2){a.alert=Math.min(100,a.alert+8);if(a.alert>=32){s.player.health=Math.max(0,s.player.health-2);addLog(s,a.name+' te golpea al acercarte demasiado.', 'warning');}}else if(a.disposition==='wary')a.alert=Math.min(100,a.alert+2);}
+  if(d<=5){a.lastSeenPlayerTick=s.tick;const rel=relationshipTo(a);if(rel.hostility>=75||rel.resentment>=82)a.disposition='hostile';else if(rel.hostility>=40&&a.disposition!=='hostile')a.disposition='wary';if(d<=2){if(a.disposition==='hostile')a.alert=Math.min(100,a.alert+8);else if(a.disposition==='wary')a.alert=Math.min(100,a.alert+2);if(a.alert>=32&&shouldAttack(a,'player',a.alert,0)){s.player.health=Math.max(0,s.player.health-2);addLog(s,a.name+' te ataca. No parece dispuesto a dejar pasar lo ocurrido.','warning');}}}
   else a.alert=Math.max(0,a.alert-1);
   // A small deterministic idle policy: people reposition only when their local situation permits it.
   if(rng.next()<.18&&a.alert<20&&d>2){const [dx,dy]=rng.pick(DIRECTIONS);const nx=a.x+dx,ny=a.y+dy;if(walkable(s,nx,ny)){a.x=nx;a.y=ny;}}
@@ -75,6 +75,8 @@ export function talk(s:WorldState,text?:string):void{
  }
  tickWorld(s);
  const r=relationshipTo(a);
+ const priorRelationship=relationshipTo(a);
+ if(!event&&(priorRelationship.hostility>=55||priorRelationship.resentment>=65)){addLog(s,a.name+' te corta antes de que puedas seguir. No tiene interés en hablar contigo.','warning');tickWorld(s);return;}
  let response:string;
  if(event?.kind==='insult')response=r.hostility>=65?'No te lo voy a olvidar. Sal de mi vista.':'¿Te pensás que podés hablarme así?';
  else if(event?.kind==='threat')response=r.fear>50?'No te acerques. Te estoy avisando.':'Amenazame otra vez y vas a ver.';

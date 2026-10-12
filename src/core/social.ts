@@ -111,6 +111,15 @@ export function shouldAttack(actor:Actor,targetId='player',perceivedThreat=0,rel
   return motive-inhibition>=62;
 }
 
+export type SocialDecision='attack'|'avoid'|'refuse'|'neutral';
+export function decideSocialAction(actor:Actor,targetId='player',perceivedThreat=0,relativeStrength=0):SocialDecision {
+ const r=relation(actor,targetId);
+ if(shouldAttack(actor,targetId,perceivedThreat,relativeStrength))return 'attack';
+ if(r.fear>55&&perceivedThreat>20)return 'avoid';
+ if(r.hostility>=55||r.resentment>=65)return 'refuse';
+ return 'neutral';
+}
+
 export function relationshipTo(actor:Actor,targetId='player'):SocialRelationship {
   return {...relation(actor,targetId)};
 }

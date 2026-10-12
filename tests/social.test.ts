@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {generateWorld} from '../src/world/generate.ts';
-import {recordSocialEvent,relationshipTo,shouldAttack,classifyUtterance,summarizeRelationship,ageSocialMemories,recordObservedSocialEvent,shareSocialRumor} from '../src/core/social.ts';
+import {recordSocialEvent,relationshipTo,shouldAttack,decideSocialAction,classifyUtterance,summarizeRelationship,ageSocialMemories,recordObservedSocialEvent,shareSocialRumor} from '../src/core/social.ts';
 
 function actor(seed=77){return generateWorld(seed).actors[0]!;}
 
@@ -14,7 +14,7 @@ test('los rasgos sociales se generan de forma reproducible y por stream independ
 test('un insulto deja memoria y aumenta resentimiento, no una penalización efímera',()=>{
  const a=actor();
  recordSocialEvent(a,{kind:'insult',targetId:'player',tick:2,severity:18,description:'me insultó'});
- const r=relationshipTo(a);
+ const r=a.social.relationships.player!;
  assert.equal(a.social.memories.length,1);
  assert.equal(a.social.memories[0]!.kind,'insult');
  assert.ok(r.resentment>0);
@@ -59,7 +59,7 @@ test('la relación puede conservar deuda y hostilidad al mismo tiempo',()=>{
  const a=actor();
  recordSocialEvent(a,{kind:'threat',targetId:'player',tick:1,severity:45,description:'amenaza'});
  recordSocialEvent(a,{kind:'saved',targetId:'player',tick:2,severity:40,description:'rescate'});
- const r=relationshipTo(a);
+ const r=a.social.relationships.player!;
  assert.ok(r.debt>0&&r.hostility>0);
  assert.match(summarizeRelationship(a),/hostilidad|agravios|desconfía|distante/);
 });
@@ -135,4 +135,15 @@ test('un rumor no atraviesa una red sin contacto',()=>{
  a!.social.contacts={};
  assert.equal(shareSocialRumor(w,a!.id,b!.id,'isolated'),false);
  assert.equal(b!.social.knowledge.some(k=>k.eventId==='isolated'),false);
+});
+
+test('la decisión social distingue rechazo de ataque y es determinista',()=>{
+ const a=actor();
+ const r=a.social.relationships.player!;
+ r.hostility=60;r.resentment=70;r.fear=0;
+ a.social.traits.vengefulness=0;a.social.traits.selfControl=100;a.social.traits.reconciliation=50;
+ assert.equal(decideSocialAction(a),'refuse');
+ a.social.traits.vengefulness=100;a.social.traits.selfControl=0;a.social.traits.reconciliation=0;
+ assert.equal(decideSocialAction(a,'player',100,0),'attack');
+ assert.equal(decideSocialAction(a,'player',100,0),decideSocialAction(a,'player',100,0));
 });

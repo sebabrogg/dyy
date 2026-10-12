@@ -9,7 +9,7 @@ La integración inicial usa la API local de Ollama. No usa una API comercial, no
 3. Iniciar Ollama y ejecutar Dysto localmente con `npm run dev`.
 4. Seleccionar un NPC cercano y hablarle. El estado de la interfaz indica si se pudo usar el modelo local.
 
-El modelo solo reformula la intención de una respuesta que ya decidió el motor. No modifica relaciones, recuerdos, inventario, acciones ni hechos del mundo. Se limita a 1-2 frases y la petición tiene un tiempo límite de 9 segundos. La respuesta segura del motor aparece primero, por lo que la partida no espera a la IA.
+El modelo solo reformula la intención de una respuesta que ya decidió el motor. No modifica relaciones, recuerdos, inventario, acciones ni hechos del mundo. Se limita a 1-2 frases, usa streaming para mostrar parciales y tiene un tiempo límite total de 9 segundos. La respuesta segura del motor aparece primero, por lo que la partida no espera a la IA.
 
 ## Límites conocidos
 

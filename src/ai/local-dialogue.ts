@@ -46,7 +46,10 @@ export function cleanNpcLine(value:string):string {
   .replace(/^["'«]+|["'»]+$/g,'').replace(/\s+/g,' ').trim().slice(0,320);
 }
 
-export async function generateLocalNpcLine(context:DialogueContext,options:{endpoint?:string;model?:string;signal?:AbortSignal}={}):Promise<string> {
+export async function generateLocalNpcLine(
+ context:DialogueContext,
+ options:{endpoint?:string;model?:string;signal?:AbortSignal;onPartial?:(text:string)=>void}={},
+):Promise<string> {
  const controller=new AbortController();
  const abort=()=>controller.abort();
  options.signal?.addEventListener('abort',abort,{once:true});
@@ -54,13 +57,38 @@ export async function generateLocalNpcLine(context:DialogueContext,options:{endp
  try {
   const response=await fetch(options.endpoint??LOCAL_AI_ENDPOINT,{
    method:'POST',headers:{'Content-Type':'application/json'},
-   body:JSON.stringify({model:options.model??DEFAULT_LOCAL_MODEL,messages:buildDialogueMessages(context),stream:false,keep_alive:'10m',options:{temperature:0.75,num_predict:72,num_ctx:2048}}),
+   body:JSON.stringify({model:options.model??DEFAULT_LOCAL_MODEL,messages:buildDialogueMessages(context),stream:true,keep_alive:'10m',options:{temperature:0.75,num_predict:72,num_ctx:2048}}),
    signal:controller.signal,
   });
   if(!response.ok)throw new Error('El modelo local respondió '+response.status);
-  const data=await response.json() as {message?:{content?:unknown}};
-  const line=typeof data.message?.content==='string'?cleanNpcLine(data.message.content):'';
+  if(!response.body)throw new Error('El modelo local no permite streaming');
+  const reader=response.body.getReader();
+  const decoder=new TextDecoder();
+  let buffer='',assembled='',lastPublished='';
+  while(true){
+   const {done,value}=await reader.read();
+   if(done)break;
+   buffer+=decoder.decode(value,{stream:true});
+   const lines=buffer.split('\n');
+   buffer=lines.pop()??'';
+   for(const line of lines){
+    if(!line.trim())continue;
+    const chunk=JSON.parse(line) as {message?:{content?:unknown};done?:boolean};
+    if(typeof chunk.message?.content==='string'){
+     assembled+=chunk.message.content;
+     const partial=cleanNpcLine(assembled);
+     if(partial&&partial!==lastPublished){lastPublished=partial;options.onPartial?.(partial);}
+    }
+   }
+  }
+  buffer+=decoder.decode();
+  if(buffer.trim()){
+   const chunk=JSON.parse(buffer) as {message?:{content?:unknown}};
+   if(typeof chunk.message?.content==='string')assembled+=chunk.message.content;
+  }
+  const line=cleanNpcLine(assembled);
   if(!line)throw new Error('El modelo local devolvió una respuesta vacía');
+  if(line!==lastPublished)options.onPartial?.(line);
   return line;
  } finally {
   clearTimeout(timer);options.signal?.removeEventListener('abort',abort);

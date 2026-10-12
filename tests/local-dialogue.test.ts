@@ -32,3 +32,23 @@ test('encuentra solo la respuesta más reciente del NPC y no la del jugador',()=
  assert.equal(latestNpcDialogue([npc,player],'Marta'),undefined);
  assert.equal(latestNpcDialogue([npc],'Marta'),npc);
 });
+
+test('consume respuestas NDJSON en streaming y publica parciales',async()=>{
+ const chunks=[
+  '{"message":{"content":"No "},"done":false}\n',
+  '{"message":{"content":"confío en vos."},"done":false}\n',
+  '{"message":{"content":""},"done":true}\n',
+ ];
+ const encoder=new TextEncoder();
+ const oldFetch=globalThis.fetch;
+ globalThis.fetch=async()=>new Response(new ReadableStream({
+  start(controller){for(const chunk of chunks)controller.enqueue(encoder.encode(chunk));controller.close();}
+ }),{status:200,headers:{'Content-Type':'application/x-ndjson'}});
+ try {
+  const {generateLocalNpcLine}=await import('../src/ai/local-dialogue.ts');
+  const partials:string[]=[];
+  const result=await generateLocalNpcLine(context,{onPartial:value=>partials.push(value)});
+  assert.equal(result,'No confío en vos.');
+  assert.deepEqual(partials,['No','No confío en vos.']);
+ } finally {globalThis.fetch=oldFetch;}
+});

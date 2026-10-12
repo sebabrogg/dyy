@@ -124,3 +124,5 @@ test('preguntar la identidad no revela a un NPC hasta que la respuesta incluye s
 });
 
 test('OpenCode es el proveedor permanente independientemente de la URL',()=>{assert.equal(resolveAiProvider(''), 'opencode');assert.equal(resolveAiProvider('?ai=opencode'),'opencode');assert.equal(resolveAiProvider('?ai=ollama'),'opencode');assert.equal(resolveAiProvider('?ai=unknown'),'opencode');});
+
+test('la ficha procedural incluye contradicciones, motivaciones y una voz propia que alimentan el diálogo',()=>{const a=generateWorld(401),b=generateWorld(402);const x=a.actors[0]!,y=b.actors[0]!;assert.ok(x.mind.motivations);assert.equal(Object.keys(x.mind.motivations!).length,8);assert.ok(x.mind.communication);assert.ok(x.mind.contradictions!.length>0);assert.ok(x.mind.defenseMechanisms!.length>0);assert.ok(x.mind.privateGoal);assert.notDeepEqual(x.mind,y.mind);const context=buildDialogueContext(x,'hola','');assert.match(context.personality,/Contradicciones internas:/);assert.match(context.personality,/Motivaciones prioritarias:/);});

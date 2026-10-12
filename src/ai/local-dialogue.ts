@@ -30,7 +30,7 @@ export interface DialogueContext {
  disposition:string; relationship:string; memories:string[]; playerKnowledge:string[];
  playerIdentity:string; observedPlayer:string;
  playerLine:string; engineLine:string; internalMind:string; lifeMission:string; observedSurroundings:string;
- socialContext:string;
+ socialContext:string; conversationHistory?:string[]; npcInventory?:string[];
 }
 
 export function buildDialogueContext(actor:Actor,playerLine:string,engineLine:string,observedSurroundings='No hay observaciones del entorno disponibles.',socialContext='No hay más relaciones o lugares conocidos disponibles.'):DialogueContext {
@@ -50,7 +50,7 @@ export function buildDialogueContext(actor:Actor,playerLine:string,engineLine:st
   playerIdentity:'La persona que tengo delante es el jugador. No conozco automáticamente su nombre, historia, estadísticas, inventario ni pensamientos. Solo puedo atribuirle identidad o características que haya observado, que me haya contado o que me hayan llegado por una fuente identificable.',
   observedPlayer:'El jugador está interactuando conmigo ahora. No deduzcas heridas, equipo, intenciones ni estado mental sin evidencia explícita.',
   playerLine:playerLine.slice(0,500),engineLine:engineLine.slice(0,240),
-  internalMind:JSON.stringify(actor.mind),lifeMission:JSON.stringify(actor.lifeMission),observedSurroundings,socialContext,
+  internalMind:JSON.stringify(actor.mind),lifeMission:JSON.stringify(actor.lifeMission),observedSurroundings,socialContext,conversationHistory:[],npcInventory:actor.inventory?.filter(item=>item.quantity>0).map(item=>item.name+' x'+item.quantity+' [id='+item.id+']')??[],
  };
 }
 
@@ -65,7 +65,10 @@ export function buildDialogueMessages(context:DialogueContext):Array<{role:'syst
   'REGLA CRÍTICA DE CONTINUIDAD: la lista MEMORIAS y CONOCIMIENTO DEL JUGADOR es la única evidencia de interacciones anteriores. Si no hay memoria de una conversación, no digas «otra vez», «ya te lo dije», «como la última vez» ni des por compartido un pasado. Si no hay evidencia de una agresión, nunca afirmes que golpeaste, atacaste o amenazaste al jugador. No inventes nombres, apodos, disputas, objetos que proteges ni hechos de tu biografía para rellenar silencios. La relación desconocida significa que no tienes historia personal confirmada con el jugador; puedes ser cauteloso, pero no actuar como si lo conocieras.',
   'Los recuerdos recientes dan continuidad a la conversación; los recuerdos de mayor importancia pueden seguir influyendo aunque sean antiguos. Una ayuda no borra una traición, una disculpa no garantiza perdón y una relación no cambia de golpe sin evidencia suficiente.',
   'Interpreta el mensaje del jugador como este personaje concreto. Decide qué piensa, siente, quiere comunicar, ocultar, negar o preguntar, usando personalidad, biografía, memoria, conocimiento, objetivos y relación con el jugador.',
+  'Respondé SIEMPRE en español natural rioplatense, sin mezclar inglés, fragmentos de otras respuestas ni texto de depuración. Una respuesta breve y completa, normalmente una o dos frases. No uses asteriscos para narrar acciones ni repitas la misma idea.',
   'No hay respuesta base ni diálogo prefabricado. No reveles datos privados solo porque estén en tu contexto; decide si este personaje los compartiría en esta situación.',
+  'La conversación reciente es la transcripción literal y tiene prioridad para entender referencias como «eso», «la sierra», «te di» o una oferta que acabás de hacer. No resetees la charla con frases genéricas de desconocido si el historial ya contiene intercambio. Si el jugador insulta, podés molestarte o cortar la charla según tu carácter, pero no amenaces con violencia de la nada: una puteada sola no equivale a una amenaza física.',
+  'TRUEQUE Y OBJETOS: tu inventario real aparece en INVENTARIO DEL NPC y el del jugador en el contexto del motor. Una promesa verbal no transfiere objetos. Si ofreciste un objeto a cambio de chatarra y el jugador dice que ya te la dio, revisá historial e inventarios: reconocé el intercambio solo si la chatarra realmente salió del inventario del jugador y entró al tuyo; si ya ocurrió, cumplí la contraprestación únicamente si el objeto ofrecido está en tu inventario y el motor lo confirma. Nunca pidas de nuevo algo que ya recibiste. Si el motor no ejecutó el intercambio, explicá que todavía no se completó; no finjas haberlo hecho ni cambies el trato a mitad de conversación.',
   'Interpreta la intención completa del mensaje, no palabras aisladas. Si el jugador pregunta si tenés encargos, recados, mandados, tareas, trabajo o algo que puedas confiarle, respondé directamente según si realmente tenés una propuesta. Si el contexto del motor dice que acabás de ofrecer un encargo, reconocelo en diálogo natural, explicá brevemente qué necesitás y no le preguntes al jugador si él tiene un encargo. Si el motor indica que no tenés ningún encargo para ofrecer, decilo con naturalidad y no des vuelta la pregunta para preguntarle si él tiene uno. La hoja de encargos complementa la conversación, nunca la reemplaza. Si el jugador solo dice una palabra ambigua como «encargo», pedí aclaración en vez de disparar una oferta.',
   'No afirmes como hechos cosas que no estén respaldadas por el contexto. Puedes mentir, equivocarte, evadir o expresar incertidumbre si encaja con el personaje, pero no cambies el estado real del mundo.',
   'Devuelve solo lo que diría el personaje, en una o dos frases breves. No uses etiquetas ni explicaciones externas. No narres gestos entre asteriscos; si una acción física es imprescindible, intégrala de forma breve en la prosa y no la repitas.',
@@ -83,6 +86,8 @@ export function buildDialogueMessages(context:DialogueContext):Array<{role:'syst
   'ENTORNO OBSERVADO AHORA: '+context.observedSurroundings+'. Solo esto y tus recuerdos justifican lo que sabés del lugar. No afirmes haber visto personajes, objetos o sucesos que no aparecen aquí ni en tus recuerdos.',
   'PERSONAS, RELACIONES Y LUGARES QUE RECORDÁS: '+(context.socialContext||'sin información adicional registrada'),
   'MISIÓN VITAL PRIVADA: '+context.lifeMission,
+  'TRANSCRIPCIÓN RECIENTE: '+((context.conversationHistory??[]).join('\\n')||'No hay transcripción anterior disponible.'),
+  'INVENTARIO DEL NPC (estado real, no implica que esté ofrecido): '+((context.npcInventory??[]).join(', ')||'vacío'),
   'RESULTADO REAL DEL MOTOR (no lo contradigas): '+(context.engineLine||'sin resultado especial'),
   'EL JUGADOR DIJO: '+context.playerLine,
   'Responde como el personaje, de forma natural y breve. Decide según su mente y la situación, no según una plantilla. Prioriza palabras y silencios; no escribas acciones entre asteriscos, gestos teatrales ni descripciones de acciones salvo que sean indispensables para entender lo que ocurre. No repitas un gesto o una idea ya expresados.',
@@ -104,7 +109,10 @@ export function cleanNpcLine(value:string):string {
 
 export function validateNpcLineGrounding(value:string,context:DialogueContext):string {
  const line=cleanNpcLine(value);
- if(!line)return 'No te conozco lo suficiente como para asumir qué pasó antes. Contame qué necesitás y te escucho.';
+ if(!line)return 'No te seguí bien. Decímelo de otra forma.';
+ if(/\b(?:toward the|pullingar|starting cable|previous tanda|dereprisa|me lo saco de encima hasta de mirarlo)\b/i.test(line))return 'Se me mezclaron las palabras. Decime de nuevo qué necesitabas.';
+ const normalizedInput=(context.playerLine??'').toLocaleLowerCase('es');
+ if(/\b(?:te arranco la cabeza|te voy a matar|te mato|te reviento|te rompo la cara|te corto)\b/i.test(line)&&! /\b(?:te voy a matar|te mato|te reviento|te rompo la cara|te corto|te arranco la cabeza|te voy a pegar|te pego)\b/i.test(normalizedInput))return /\b(?:imb[eé]cil|idiota|est[uú]pido|pelotudo|boludo|mierda|pija|chupa un huevo)\b/i.test(normalizedInput)?'No me hables así. Si querés seguir, hablame claro.':'No hace falta ponerse así. Decime qué necesitás.';
  const evidence=[...(context.memories??[]),...(context.playerKnowledge??[])].join(' ').toLocaleLowerCase('es');
  const normalized=line.toLocaleLowerCase('es');
  const unsupportedPast=[/\botra vez\b/,/\bya te lo dije\b/,/\como te dije\b/,/\la última vez\b/,/\ya hablamos de esto\b/,/\te lo advertí\b/];

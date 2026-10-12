@@ -18,3 +18,18 @@ test('el prompt obliga a anclar pasado y agresiones en recuerdos',()=>{
  assert.match(system,/REGLA CRÍTICA DE CONTINUIDAD/);
  assert.match(system,/nunca afirmes que golpeaste, atacaste o amenazaste/);
 });
+
+
+test('el contexto de diálogo admite transcripción e inventario reales del NPC',()=>{
+ const withState={...context,conversationHistory:['Tú: cuchillo','Bautista: Tengo una hoja de sierra.'],npcInventory:['hoja de sierra x1 [id=saw]']};
+ const messages=buildDialogueMessages(withState);const system=messages.map(message=>message.content).join('\n');
+ assert.match(system,/TRANSCRIPCIÓN RECIENTE/);
+ assert.match(system,/Bautista: Tengo una hoja de sierra/);
+ assert.match(system,/INVENTARIO DEL NPC/);
+ assert.match(system,/hoja de sierra x1/);
+});
+
+test('evita fragmentos mezclados y amenazas desproporcionadas tras un insulto',()=>{
+ assert.match(validateNpcLineGrounding('Andaba Toward the garaje.',context),/me mezclaron las palabras/i);
+ assert.equal(validateNpcLineGrounding('Si seguís con eso te arranco la cabeza.',{...context,playerLine:'imbecil'}),'No me hables así. Si querés seguir, hablame claro.');
+});

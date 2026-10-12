@@ -1,0 +1,44 @@
+import {distance,indexOf,type WorldState} from '../core/types.ts';
+import {canSee,tileAt} from '../core/engine.ts';
+const COLORS:Record<string,string>={floor:'#333b3d',road:'#242b2e',wall:'#596165',building:'#4a5152',door:'#a86e4b',scrap:'#66705e',grass:'#3d5948',water:'#293f49'};
+export interface MapView{tileW:number;tileH:number;originX:number;originY:number;scale:number;}
+export function drawMap(canvas:HTMLCanvasElement,s:WorldState):MapView{
+ const ctx=canvas.getContext('2d');if(!ctx)throw new Error('Canvas 2D no disponible');
+ const rect=canvas.getBoundingClientRect(),dpr=Math.min(window.devicePixelRatio||1,2);
+ if(canvas.width!==Math.round(rect.width*dpr)||canvas.height!==Math.round(rect.height*dpr)){canvas.width=Math.round(rect.width*dpr);canvas.height=Math.round(rect.height*dpr);}
+ ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,rect.width,rect.height);
+ const tileW=Math.max(13,Math.min(30,rect.width/(s.width+s.height)*1.8,rect.height/(s.width+s.height)*1.55));
+ const tileH=tileW*.5, mapW=(s.width+s.height)*tileW/2,mapH=(s.width+s.height)*tileH/2;
+ const originX=(rect.width-mapW)/2+(s.height*tileW/2),originY=(rect.height-mapH)/2+10;
+ const center=(x:number,y:number)=>({x:originX+(x-y)*tileW/2,y:originY+(x+y)*tileH/2});
+ // Draw back-to-front, giving every tile a clear diamond footprint.
+ for(let sum=0;sum<s.width+s.height;sum++)for(let y=Math.max(0,sum-s.width+1);y<=Math.min(s.height-1,sum);y++){
+  const x=sum-y,t=s.tiles[indexOf(x,y,s.width)]!,p=center(x,y);
+  ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(p.x+tileW/2,p.y+tileH/2);ctx.lineTo(p.x,p.y+tileH);ctx.lineTo(p.x-tileW/2,p.y+tileH/2);ctx.closePath();
+  const visible=distance(s.player,t)<=7||t.explored;
+  ctx.fillStyle=visible?COLORS[t.terrain]:'#15191b';ctx.fill();ctx.strokeStyle=visible?'#1b2224':'#111416';ctx.lineWidth=.65;ctx.stroke();
+  if(!visible)continue;
+  if(t.terrain==='building'||t.terrain==='wall'){
+   ctx.fillStyle=t.terrain==='wall'?'#737c7d':'#5a6263';ctx.beginPath();ctx.moveTo(p.x-tileW*.42,p.y+tileH*.43);ctx.lineTo(p.x-tileW*.42,p.y-tileH*.15);ctx.lineTo(p.x,p.y-tileH*.55);ctx.lineTo(p.x+tileW*.42,p.y-tileH*.15);ctx.lineTo(p.x+tileW*.42,p.y+tileH*.43);ctx.closePath();ctx.fill();
+   ctx.strokeStyle='#81898a';ctx.beginPath();ctx.moveTo(p.x,p.y-tileH*.55);ctx.lineTo(p.x,p.y+tileH*.05);ctx.stroke();
+  } else if(t.terrain==='scrap'){ctx.fillStyle='#9ba28c';ctx.fillRect(p.x-2,p.y+tileH*.3,4,2);ctx.fillRect(p.x+2,p.y+tileH*.2,3,2);}
+  else if(t.terrain==='grass'){ctx.strokeStyle='#83a58a';ctx.beginPath();ctx.moveTo(p.x,p.y+tileH*.6);ctx.lineTo(p.x-2,p.y);ctx.moveTo(p.x,p.y+tileH*.6);ctx.lineTo(p.x+3,p.y+.5);ctx.stroke();}
+ }
+ for(const a of s.actors.filter(a=>canSee(s,a)).sort((a,b)=>(a.x+a.y)-(b.x+b.y))){
+  const p=center(a.x,a.y);ctx.beginPath();ctx.ellipse(p.x,p.y+tileH*.46,tileW*.19,tileH*.2,0,0,Math.PI*2);ctx.fillStyle='#0c0f10';ctx.fill();
+  ctx.beginPath();ctx.arc(p.x,p.y+tileH*.16,tileW*.19,0,Math.PI*2);ctx.fillStyle=a.color;ctx.fill();ctx.strokeStyle=s.selectedActorId===a.id?'#f0c878':'#111';ctx.lineWidth=s.selectedActorId===a.id?2:1;ctx.stroke();
+  ctx.fillStyle='#101314';ctx.font='bold '+Math.max(8,tileW*.32)+'px monospace';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(a.glyph,p.x,p.y+tileH*.16+.5);
+  if(a.alert>15){ctx.fillStyle='#e36b5e';ctx.fillRect(p.x-2,p.y-tileH*.25,4,2);}
+ }
+ const pp=center(s.player.x,s.player.y);ctx.beginPath();ctx.ellipse(pp.x,pp.y+tileH*.48,tileW*.23,tileH*.23,0,0,Math.PI*2);ctx.fillStyle='#d8d9d0';ctx.fill();
+ ctx.strokeStyle='#111';ctx.lineWidth=1.5;ctx.stroke();ctx.fillStyle='#111';ctx.font='bold '+Math.max(10,tileW*.45)+'px monospace';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('@',pp.x,pp.y+tileH*.16);
+ if(s.selectedTile){const p=center(s.selectedTile.x,s.selectedTile.y);ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(p.x+tileW/2,p.y+tileH/2);ctx.lineTo(p.x,p.y+tileH);ctx.lineTo(p.x-tileW/2,p.y+tileH/2);ctx.closePath();ctx.strokeStyle='#d7b76d';ctx.lineWidth=1.5;ctx.stroke();}
+ return{tileW,tileH,originX,originY,scale:1};
+}
+export function tileFromPointer(canvas:HTMLCanvasElement,s:WorldState,clientX:number,clientY:number):{x:number;y:number}|null{
+ const rect=canvas.getBoundingClientRect(),tileW=Math.max(13,Math.min(30,rect.width/(s.width+s.height)*1.8,rect.height/(s.width+s.height)*1.55)),tileH=tileW*.5;
+ const mapW=(s.width+s.height)*tileW/2,mapH=(s.width+s.height)*tileH/2,originX=(rect.width-mapW)/2+(s.height*tileW/2),originY=(rect.height-mapH)/2+10;
+ const px=clientX-rect.left-originX,py=clientY-rect.top-originY;
+ const x=Math.round(px/tileW+py/tileH),y=Math.round(py/tileH-px/tileW);
+ return tileAt(s,x,y)?{x,y}:null;
+}

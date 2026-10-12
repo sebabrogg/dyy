@@ -1,0 +1,15 @@
+export type Terrain='floor'|'wall'|'road'|'water'|'building'|'scrap'|'grass'|'door';
+export interface Tile{x:number;y:number;terrain:Terrain;explored:boolean;}
+export type Disposition='wary'|'neutral'|'hostile'|'helpful';
+export type SocialEventKind='insult'|'threat'|'help'|'saved'|'apology'|'betrayal'|'conversation';
+export interface SocialTraits{susceptibility:number;reactivity:number;grudge:number;pride:number;selfControl:number;vengefulness:number;reconciliation:number;}
+export interface SocialMemory{id:string;targetId:string;tick:number;kind:SocialEventKind;severity:number;salience:number;decayPerDay:number;public:boolean;description:string;interpretation:string;}
+export interface SocialRelationship{affection:number;trust:number;respect:number;resentment:number;fear:number;debt:number;hostility:number;}
+export interface ActorSocialState{traits:SocialTraits;memories:SocialMemory[];relationships:Record<string,SocialRelationship>;lastAgedTick:number;}
+export interface Actor{id:string;name:string;glyph:string;x:number;y:number;faction:string;disposition:Disposition;personality:string;goal:string;trust:number;alert:number;alive:boolean;color:string;lastSeenPlayerTick:number;social:ActorSocialState;}
+export interface Item{id:string;name:string;quantity:number;description:string;}
+export interface Player{x:number;y:number;health:number;sanity:number;hunger:number;inventory:Item[];}
+export interface WorldState{seed:number;width:number;height:number;tiles:Tile[];actors:Actor[];player:Player;tick:number;day:number;minute:number;selectedActorId:string|null;selectedTile:{x:number;y:number}|null;log:LogEntry[];running:boolean;}
+export interface LogEntry{tick:number;text:string;kind:'world'|'action'|'warning'|'dialogue';}
+export const indexOf=(x:number,y:number,width:number)=>y*width+x;
+export const distance=(a:{x:number;y:number},b:{x:number;y:number})=>Math.hypot(a.x-b.x,a.y-b.y);

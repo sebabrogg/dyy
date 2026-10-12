@@ -4,9 +4,12 @@ const HOST = process.env.DYSTO_BRIDGE_HOST || '127.0.0.1';
 const PORT = Number(process.env.DYSTO_BRIDGE_PORT || 11435);
 const OLLAMA = (process.env.DYSTO_OLLAMA_URL || 'http://127.0.0.1:11434').replace(/\/$/, '');
 const MAX_BODY = 1024 * 1024;
+const ALLOWED_ORIGINS = new Set((process.env.DYSTO_ALLOWED_ORIGINS || 'https://sb-5hj233f78g7w.vercel.run,http://localhost:5173,http://127.0.0.1:5173').split(',').map(value => value.trim()).filter(Boolean));
 
 const server = http.createServer(async (req, res) => {
-  res.setHeader('Access-Control-Allow-Origin', '*');
+  const origin = req.headers.origin;
+  if (origin && !ALLOWED_ORIGINS.has(origin)) { res.writeHead(403, { 'Vary': 'Origin' }); res.end('Origin not allowed'); return; }
+  if (origin) res.setHeader('Access-Control-Allow-Origin', origin);
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS');
   res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
   res.setHeader('Access-Control-Allow-Private-Network', 'true');

@@ -125,3 +125,37 @@ body { overflow: hidden !important; }
   .conversation-dock { flex: 0 0 245px; max-height: none; }
   .footer { height: auto; min-height: 24px; white-space: normal; }
 }
+
+/* El chat vive en la columna derecha; escribir nunca desplaza el mapa ni la página. */
+@media (min-width: 721px) {
+  .world-column { min-width: 0; }
+  .map-frame { flex: 1 1 0; min-height: 0 !important; }
+  .right-panel { display: flex; flex-direction: column; gap: 8px; overflow-y: auto; }
+  .right-panel > .panel-heading,
+  .right-panel > .target-card,
+  .right-panel > .target-detail { flex: 0 0 auto; }
+  .right-panel > .conversation-dock { order: 4; flex: 0 0 clamp(230px, 42vh, 390px); width: 100%; min-height: 210px; max-height: none; margin: 2px 0 4px; padding: 8px; display: flex; flex-direction: column; gap: 6px; overflow: hidden; }
+  .conversation-heading { flex: 0 0 auto; min-width: 0; display: flex; flex-direction: column; align-items: flex-start; gap: 2px; }
+  #conversation-target { max-width: 100%; overflow-wrap: anywhere; font-size: 9px; }
+  .conversation-archive { flex: 0 0 auto; min-width: 0; }
+  .conversation-dock .dialogue-feed { flex: 1 1 0; min-height: 35px; max-height: none !important; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; }
+  .conversation-input { flex: 0 0 auto; min-width: 0; }
+  .say-form > div { display: flex; min-width: 0; }
+  .say-form input { width: 100%; min-width: 0; }
+  .right-panel > .section-label,
+  .right-panel > .quest-list,
+  .right-panel > .event-log,
+  .right-panel > .available-actions { flex: 0 0 auto; }
+  .right-panel > .event-log { max-height: 120px; overflow-y: auto; }
+}
+@media (min-width: 721px) and (max-height: 760px) {
+  .right-panel { gap: 5px; }
+  .right-panel > .conversation-dock { flex-basis: clamp(190px, 36vh, 280px); min-height: 180px; padding: 6px; }
+  .conversation-dock .dialogue-card { padding: 5px; }
+  .conversation-dock .conversation-input .ai-status { margin: 3px 0 0; font-size: 8px; }
+}
+@media (max-width: 720px) {
+  .right-panel { display: flex; flex-direction: column; gap: 8px; }
+  .right-panel > .conversation-dock { order: 0; flex: 0 0 300px; min-height: 260px; max-height: none; width: 100%; margin: 4px 0; display: flex; flex-direction: column; overflow: hidden; }
+  .conversation-dock .dialogue-feed { flex: 1 1 0; min-height: 40px; overflow-y: auto; }
+}

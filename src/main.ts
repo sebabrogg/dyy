@@ -3,6 +3,7 @@ import {formatClock,initializeWorld,inspect,moveTo,selectActor,say,talk,tileAt,u
 import {generateWorld} from './world/generate.ts';
 import {drawMap,tileFromPointer} from './ui/map.ts';
 import type {WorldState} from './core/types.ts';
+import {buildDialogueContext,generateLocalNpcLine,latestNpcDialogue} from './ai/local-dialogue.ts';
 
 const state:WorldState=generateWorld();
 const $=<T extends HTMLElement>(id:string)=>document.getElementById(id) as T;
@@ -47,6 +48,6 @@ document.querySelectorAll<HTMLButtonElement>('[data-action]').forEach(b=>b.addEv
  if(action==='talk')talk(state);else if(action==='inspect')inspect(state);else if(action==='wait')waitTurn(state);else if(action==='use')useItem(state);
  render();
 }));
-$('say-form').addEventListener('submit',e=>{e.preventDefault();const input=$<HTMLInputElement>('say-input');if(input.value.trim()){say(state,input.value);input.value='';render();}});
+$('say-form').addEventListener('submit',e=>{e.preventDefault();const input=$<HTMLInputElement>('say-input');const line=input.value.trim();if(!line)return;const actor=state.selectedActorId?state.actors.find(v=>v.id===state.selectedActorId):undefined;say(state,line);input.value='';render();if(!actor||!actor.alive)return;const localHosts=['localhost','127.0.0.1','::1'];if(!localHosts.includes(window.location.hostname)){ $('ai-status').textContent='VOZ LOCAL: ejecuta Dysto en esta PC para conectar Ollama';return;}const reply=latestNpcDialogue(state.log,actor.name);if(!reply)return;const engineLine=reply.text.slice(actor.name.length+3,-1);const context=buildDialogueContext(actor,line,engineLine);const status=$<HTMLElement>('ai-status');status.textContent='VOZ LOCAL: probando modelo gratuito…';generateLocalNpcLine(context).then(generated=>{reply.text=actor.name+': «'+generated+'»';status.textContent='VOZ LOCAL: activa · '+actor.name;render();}).catch(()=>{status.textContent='VOZ LOCAL: no disponible · usando motor';});});
 window.addEventListener('resize',()=>render());
 render();

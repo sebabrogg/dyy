@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Random,stream} from '../src/core/rng.ts';
-import {moveTo,initializeWorld} from '../src/core/engine.ts';
+import {moveTo,initializeWorld,say} from '../src/core/engine.ts';
 import {generateWorld} from '../src/world/generate.ts';
 
 test('la generación de mundo es reproducible para una misma semilla',()=>{
@@ -32,4 +32,12 @@ test('el motor rechaza movimiento fuera del mapa sin cambiar la posición',()=>{
  moveTo(s,-1,-1);
  assert.deepEqual({x:s.player.x,y:s.player.y,tick:s.tick},before);
  assert.ok(s.log.some(e=>e.kind==='warning'));
+});
+
+test('una intervención del jugador se registra una sola vez al hablar con un NPC',()=>{
+ const s=generateWorld(123);initializeWorld(s);
+ const actor=s.actors.find(a=>a.alive);assert.ok(actor);
+ actor.x=s.player.x+1;actor.y=s.player.y;s.selectedActorId=actor.id;
+ const line='¿Me escuchás?';say(s,line,{suppressDialogue:true});
+ assert.equal(s.log.filter(e=>e.kind==='dialogue'&&e.text==='Tú: «'+line+'»').length,1);
 });

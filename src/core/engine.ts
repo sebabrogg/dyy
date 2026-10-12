@@ -13,6 +13,24 @@ function occupied(s:WorldState,x:number,y:number,ignore?:string):boolean{return 
 function walkable(s:WorldState,x:number,y:number):boolean{const t=tileAt(s,x,y);return !!t&&WALKABLE.has(t.terrain)&&!occupied(s,x,y);}
 export function refreshVisibility(s:WorldState):void{for(const t of s.tiles)if(distance(s.player,t)<=6)t.explored=true;}
 export function initializeWorld(s:WorldState):void{refreshVisibility(s);addLog(s,'La lluvia ácida cae sobre las Calderas. Un altavoz repite las condiciones del toque de queda.');addLog(s,'El puesto de control está activo. Nadie parece tener prisa por explicarte por qué.');}
+function resolveQuestConsequences(s:WorldState):void{
+ for(const quest of s.quests){
+  if(quest.status!=='accepted')continue;
+  const giver=s.actors.find(a=>a.id===quest.giverId);
+  if(giver&&giver.alive)continue;
+  quest.status='failed';
+  addLog(s,'El encargo «'+quest.title+'» ha fracasado: '+(giver?'quien te lo confió ha muerto.':'quien te lo confió ya no está disponible.'),'warning');
+  if(giver){
+   const rel=giver.social.relationships.player;
+   if(rel){
+    rel.trust=Math.max(0,rel.trust-8);
+    rel.respect=Math.max(0,rel.respect-5);
+    rel.resentment=Math.min(100,rel.resentment+8);
+   }
+  }
+ }
+}
+
 function tickWorld(s:WorldState):void{
  s.tick++;s.minute+=5;if(s.minute>=1440){s.minute-=1440;s.day++;}
  s.player.hunger=Math.min(100,s.player.hunger+.25);
@@ -25,6 +43,7 @@ function tickWorld(s:WorldState):void{
   // A small deterministic idle policy: people reposition only when their local situation permits it.
   if(rng.next()<.18&&a.alert<20&&d>2){const [dx,dy]=rng.pick(DIRECTIONS);const nx=a.x+dx,ny=a.y+dy;if(walkable(s,nx,ny)){a.x=nx;a.y=ny;}}
  }
+ resolveQuestConsequences(s);
  // Gossip is local, contact-gated, and deterministic. Each actor can pass at most one known event per tick.
  const socialRng=stream(s.seed,'npc.social.tick.'+s.tick);
  for(const source of s.actors.filter(v=>v.alive&&v.social.knowledge.length)){

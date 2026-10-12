@@ -3,6 +3,23 @@ import type {Actor,LogEntry} from '../core/types.ts';
 export const LOCAL_AI_ENDPOINT='http://127.0.0.1:11435/api/chat';
 export const DEFAULT_LOCAL_MODEL='qwen2.5:3b';
 export const LOCAL_AI_TIMEOUT_MS=45000;
+export const LOCAL_AI_HEALTH_TIMEOUT_MS=4000;
+
+async function checkLocalBridge(endpoint:string):Promise<void> {
+ const healthUrl=endpoint.replace(/\/api\/chat\/?$/,'/health');
+ let timer:ReturnType<typeof setTimeout>|undefined;
+ const timeout=new Promise<never>((_,reject)=>{timer=setTimeout(()=>reject(new Error('DIAGNÓSTICO: el puente local no respondió en 4 segundos. Abrí http://127.0.0.1:11435/health en otra pestaña.')),LOCAL_AI_HEALTH_TIMEOUT_MS);});
+ try {
+  const response=await Promise.race([fetch(healthUrl,{method:'GET',cache:'no-store'}),timeout]);
+  if(!response.ok)throw new Error('DIAGNÓSTICO: el puente local responde, pero Ollama no está disponible. Revisá http://127.0.0.1:11435/health.');
+  const health=await response.json() as {ok?:boolean;models?:string[];error?:string};
+  if(!health.ok)throw new Error('DIAGNÓSTICO: Ollama no está disponible. '+(health.error||'Revisá http://127.0.0.1:11435/health.'));
+  if(!(health.models||[]).some(model=>model==='qwen2.5:3b'||model.startsWith('qwen2.5:3b-')))throw new Error('DIAGNÓSTICO: falta el modelo qwen2.5:3b. Ejecutá en una terminal: ollama pull qwen2.5:3b');
+ } catch(error) {
+  if(error instanceof Error && error.message.startsWith('DIAGNÓSTICO:'))throw error;
+  throw new Error('DIAGNÓSTICO: Dysto no puede acceder al puente de tu PC. Iniciá el puente con npm run ai:bridge y permití el acceso a la red local para este sitio. Detalle: '+(error instanceof Error?error.message:String(error)));
+ } finally {if(timer)clearTimeout(timer);}
+}
 
 export interface DialogueContext {
  actorName:string; faction:string; personality:string; goal:string;
@@ -53,12 +70,14 @@ export async function generateLocalNpcLine(
  context:DialogueContext,
  options:{endpoint?:string;model?:string;signal?:AbortSignal;onPartial?:(text:string)=>void}={},
 ):Promise<string> {
+ const endpoint=options.endpoint??LOCAL_AI_ENDPOINT;
+ await checkLocalBridge(endpoint);
  const controller=new AbortController();
  const abort=()=>controller.abort();
  options.signal?.addEventListener('abort',abort,{once:true});
  const timer=setTimeout(abort,LOCAL_AI_TIMEOUT_MS);
  try {
-  const response=await fetch(options.endpoint??LOCAL_AI_ENDPOINT,{
+  const response=await fetch(endpoint,{
    method:'POST',headers:{'Content-Type':'application/json'},
    body:JSON.stringify({model:options.model??DEFAULT_LOCAL_MODEL,messages:buildDialogueMessages(context),stream:true,keep_alive:'10m',options:{temperature:0.75,num_predict:72,num_ctx:2048}}),
    signal:controller.signal,

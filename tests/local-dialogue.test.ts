@@ -42,9 +42,12 @@ test('consume respuestas NDJSON en streaming y publica parciales',async()=>{
  ];
  const encoder=new TextEncoder();
  const oldFetch=globalThis.fetch;
- globalThis.fetch=async()=>new Response(new ReadableStream({
-  start(controller){for(const chunk of chunks)controller.enqueue(encoder.encode(chunk));controller.close();}
- }),{status:200,headers:{'Content-Type':'application/x-ndjson'}});
+ globalThis.fetch=async(input)=>{
+  if(String(input).endsWith('/health'))return new Response(JSON.stringify({ok:true,models:['qwen2.5:3b']}),{status:200,headers:{'Content-Type':'application/json'}});
+  return new Response(new ReadableStream({
+   start(controller){for(const chunk of chunks)controller.enqueue(encoder.encode(chunk));controller.close();}
+  }),{status:200,headers:{'Content-Type':'application/x-ndjson'}});
+ };
  try {
   const {generateLocalNpcLine}=await import('../src/ai/local-dialogue.ts');
   const partials:string[]=[];

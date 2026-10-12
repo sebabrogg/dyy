@@ -87,8 +87,23 @@ test('hablar integra insultos en el motor y una frase amable no reinicia la rela
  assert.ok(resentmentAfterInsult>0);
  talk(world,'Buen día');
  assert.equal(a.social.memories.filter(m=>m.kind==='insult').length,1);
- assert.equal(a.social.memories.filter(m=>m.kind==='conversation').length,2);
+ assert.equal(a.social.memories.filter(m=>m.kind==='conversation').length,1);
+ assert.equal(a.social.memories.length,2);
  assert.ok(relationshipTo(a).resentment>resentmentAfterInsult-0.01);
+});
+
+test('una disculpa se recuerda como disculpa, no como una ofensa duplicada',async()=>{
+ const {talk}=await import('../src/core/engine.ts');
+ const world=generateWorld(102);
+ const a=world.actors[1]!;
+ world.player.x=a.x;world.player.y=a.y;world.selectedActorId=a.id;
+ talk(world,'Sos un imbécil');
+ const resentmentAfterInsult=relationshipTo(a).resentment;
+ talk(world,'Perdón, lo siento');
+ assert.ok(relationshipTo(a).resentment<resentmentAfterInsult);
+ assert.equal(a.social.memories.filter(m=>m.kind==='apology').length,1);
+ assert.equal(a.social.memories.filter(m=>m.kind==='conversation').length,0);
+ assert.match(a.social.memories.find(m=>m.kind==='apology')!.interpretation,/disculpa/);
 });
 
 test('solo los testigos cercanos con línea de visión conocen un agravio',()=>{

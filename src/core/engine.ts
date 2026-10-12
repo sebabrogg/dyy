@@ -85,7 +85,8 @@ export function talk(s:WorldState,text?:string,options:{suppressDialogue?:boolea
  if(!a||!canSee(s,a)){addLog(s,'No tienes a nadie seleccionado que pueda oírte.','warning');return;}
  if(distance(s.player,a)>2){addLog(s,a.name+' está demasiado lejos para conversar. Acércate primero.','warning');return;}
  const clean=(text??'').toLocaleLowerCase('es').normalize('NFD').replace(/[\u0300-\u036f]/g,'').trim();
- if(text?.trim())recordSocialEvent(a,{kind:'conversation',targetId:'player',tick:s.tick,severity:8,description:'El jugador me dijo: «'+text.trim().slice(0,240)+'»',interpretation:'interacción recordada'});
+ const event=text?classifyUtterance(text):null;
+ if(text?.trim()&&!event)recordSocialEvent(a,{kind:'conversation',targetId:'player',tick:s.tick,severity:8,description:'El jugador me dijo: «'+text.trim().slice(0,240)+'»',interpretation:'interacción recordada'});
  const offered=s.quests.find(q=>q.giverId===a.id&&q.status==='offered');
  if(/\b(acepto|aceptar|acepto el encargo|me encargo|lo hare|lo hago)\b/.test(clean)){
   if(offered){offered.status='accepted';offered.acceptedAtTick=s.tick;addLog(s,'Aceptaste el encargo de '+a.name+': '+offered.title+'. Objetivo actual: '+offered.objective+'.','action');tickWorld(s);return;}
@@ -93,10 +94,9 @@ export function talk(s:WorldState,text?:string,options:{suppressDialogue?:boolea
  }
  if(/\b(rechazo|no acepto|no me interesa|dejalo)\b/.test(clean)&&offered){offered.status='declined';addLog(s,'Rechazaste el encargo de '+a.name+'. Su objetivo personal continúa.','action');tickWorld(s);return;}
  const asksForWork=/\b(ayuda|ayudar|ayudame|ayudo|ayudarte|ayudarte con eso|puedo ayudarte|queres que te ayude|quieres que te ayude|te doy una mano|trabajo|encargo|mision|misiones|que necesitas|que necesitas de mi|en que puedo ayudar|tenes algun problema|tienes algun problema)\b/.test(clean);
- const event=text?classifyUtterance(text):null;
  if(event){
   const publicInsult=/(delante de todos|en público|frente a todos|con todos mirando)/i.test(text??'');
-  recordSocialEvent(a,{...event,targetId:'player',tick:s.tick,public:publicInsult,interpretation:'lo percibe como una ofensa directa',sincerity:event.kind==='apology'?35:undefined,repairEffort:0});
+  recordSocialEvent(a,{...event,targetId:'player',tick:s.tick,public:publicInsult,interpretation:event.kind==='apology'?'intento de disculpa; la sinceridad todavía no está demostrada':event.kind==='threat'?'amenaza directa':event.kind==='insult'?'ofensa directa':'interacción hostil',sincerity:event.kind==='apology'?35:undefined,repairEffort:0});
   recordObservedSocialEvent(s,{eventId:'social:'+s.tick+':player:'+a.id+':'+event.kind+':'+s.log.length,sourceId:'player',targetId:a.id,kind:event.kind,tick:s.tick,severity:event.severity??10,description:text??'',public:publicInsult});
   if(event.kind==='threat'){a.alert=Math.min(100,a.alert+20);}
   const r=relationshipTo(a);

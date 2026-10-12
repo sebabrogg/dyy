@@ -49,3 +49,14 @@ F. Diseñar frontera de IA externa: salida estructurada, validación, rechazo se
 - Se propone una escala de habilidad 0-10 y chequeos D20 con modificadores acotados. Es una hipótesis para calibrar, no una fórmula cerrada todavía.
 - La dificultad corresponde a la tarea y al contexto. Los NPCs no reciben bonificaciones por el nivel del jugador.
 - La progresión necesita pruebas estadísticas y antifarmeo antes de conectarse al combate o a la interfaz.
+
+
+## Conocimiento social y rumores
+
+- Un NPC no conoce un hecho solo porque exista en el estado global. Debe presenciarlo con distancia y línea de visión, o recibirlo de un contacto.
+- Cada registro de conocimiento conserva evento, sujetos, tick, confianza, interpretación, origen (testigo o rumor) y saltos de transmisión.
+- La red de contactos se genera con el stream social de la semilla y no equivale a que todos los NPC se conozcan.
+- Los rumores solo se transmiten entre contactos vivos y cercanos. La confianza cae, la interpretación depende de rasgos y la cadena tiene un máximo de dos saltos.
+- La reputación es local a cada observador y al sujeto del evento; no existe una puntuación global omnisciente.
+- La simulación de rumores usa un stream nombrado por tick. El texto generado o la interfaz no puede inventar hechos ni difundirlos directamente.
+- Límite actual: las decisiones de trabajo, cooperación, denuncia y violencia aún no consultan de forma integral esta reputación. Integrar esa capa después de definir objetivos y riesgos de cada NPC.

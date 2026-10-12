@@ -18,7 +18,9 @@ La simulación determinista define los hechos. Los NPCs actúan con información
 - Una buena acción puede crear deuda o confianza sin borrar agravios previos.
 - Olvido lento y dependiente de los rasgos; recordar un hecho no implica sentirlo con la misma intensidad para siempre.
 - Las decisiones agresivas consideran hostilidad, resentimiento, venganza, autocontrol, miedo y riesgo.
-- Siguiente: testigos, reputación basada en información transmitida, relaciones NPC-NPC y objetivos sociales persistentes.
+- Implementado: testigos con distancia y línea de visión; conocimiento individual y reputación local por sujeto; red de contactos NPC generada con semilla; rumores de uno o dos saltos con confianza reducida y posibilidad determinista de distorsión.
+- Implementado: la conversación del jugador puede generar conocimiento para testigos; los rumores solo circulan entre contactos vivos que estén cerca.
+- Pendiente: que la reputación y las relaciones NPC-NPC modifiquen decisiones concretas de trabajo, cooperación, denuncia, venganza y combate. La memoria social todavía no gobierna todo el árbol de decisiones del NPC.
 
 ### 3. Progresión RPG sin escalado artificial
 - No hay nivel global que aumente todas las estadísticas.

@@ -9,7 +9,7 @@ export function tileAt(s:WorldState,x:number,y:number){return x<0||y<0||x>=s.wid
 export function canSee(s:WorldState,a:Actor):boolean{return a.alive&&distance(s.player,a)<=12;}
 export function canIdentifyActor(s:WorldState,a:Actor):boolean{return a.alive&&distance(s.player,a)<=7;}
 export function visibleActors(s:WorldState):Actor[]{return s.actors.filter(a=>canSee(s,a));}
-function addLog(s:WorldState,text:string,kind:LogEntry['kind']='world'){s.log.push({tick:s.tick,text,kind});if(s.log.length>100)s.log.shift();}
+function addLog(s:WorldState,text:string,kind:LogEntry['kind']='world',actorId?:string){s.log.push({tick:s.tick,text,kind,...(actorId?{actorId}:{})});if(s.log.length>100)s.log.shift();}
 function occupied(s:WorldState,x:number,y:number,ignore?:string):boolean{return s.actors.some(a=>a.alive&&a.id!==ignore&&a.x===x&&a.y===y)||(s.player.x===x&&s.player.y===y);}
 function walkable(s:WorldState,x:number,y:number):boolean{const t=tileAt(s,x,y);return !!t&&WALKABLE.has(t.terrain)&&!occupied(s,x,y);}
 export function refreshVisibility(s:WorldState):void{for(const t of s.tiles)if(distance(s.player,t)<=6)t.explored=true;}
@@ -187,7 +187,7 @@ export function talk(s:WorldState,text?:string,options:{suppressDialogue?:boolea
  }
 }
 export function selectActor(s:WorldState,id:string):void{const a=s.actors.find(v=>v.id===id);if(a&&canSee(s,a)){s.selectedActorId=id;s.selectedTile={x:a.x,y:a.y};}}
-export function say(s:WorldState,text:string,options:{suppressDialogue?:boolean}={}):void{const clean=text.trim();if(!clean)return;const a=s.selectedActorId?s.actors.find(v=>v.id===s.selectedActorId):undefined;if(!a||!canSee(s,a)||distance(s.player,a)>2){addLog(s,'Tu voz se pierde entre motores y lluvia. Nadie responde.','action');tickWorld(s);return;}addLog(s,'Tú: «'+clean+'»','dialogue');talk(s,clean,options);}
+export function say(s:WorldState,text:string,options:{suppressDialogue?:boolean}={}):void{const clean=text.trim();if(!clean)return;const a=s.selectedActorId?s.actors.find(v=>v.id===s.selectedActorId):undefined;if(!a||!canSee(s,a)||distance(s.player,a)>2){addLog(s,'Tu voz se pierde entre motores y lluvia. Nadie responde.','action');tickWorld(s);return;}addLog(s,'Tú: «'+clean+'»','dialogue',a.id);talk(s,clean,options);}
 export function giveItemFromChat(s:WorldState,text:string):boolean{const lower=text.toLowerCase();const phrases=["te voy a dar ","te doy ","toma ","te entrego ","quiero darte "];const phrase=phrases.find(p=>lower.includes(p));if(!phrase)return false;const wanted=lower.slice(lower.indexOf(phrase)+phrase.length).trim().replace(/[.!?,]+$/g,"");const actor=s.selectedActorId?s.actors.find(a=>a.id===s.selectedActorId):undefined;if(!actor||!actor.alive||!canSee(s,actor)||distance(s.player,actor)>2){addLog(s,"Necesitas estar junto a alguien para entregarle un objeto.","warning");return true;}const item=s.player.inventory.find(i=>i.quantity>0&&(wanted.includes(i.name.toLowerCase())||wanted.includes(i.id.toLowerCase())||i.name.toLowerCase().includes(wanted)));if(!item){addLog(s,"No tienes ese objeto para entregárselo.","warning");return true;}item.quantity--;if(!actor.inventory)actor.inventory=[];const existing=actor.inventory.find(i=>i.id===item.id);if(existing)existing.quantity++;else actor.inventory.push({...item,quantity:1});addLog(s,"Tú: «"+text+"»","dialogue");addLog(s,"Le entregas "+item.name+" a "+actor.name+".","action");tickWorld(s);return true;}
 export function interactWorld(s:WorldState):void{
  const tile=s.selectedTile?tileAt(s,s.selectedTile.x,s.selectedTile.y):tileAt(s,s.player.x,s.player.y);

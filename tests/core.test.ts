@@ -35,6 +35,8 @@ test('el motor rechaza movimiento fuera del mapa sin cambiar la posición',()=>{
 });
 
 test('una intervención del jugador se registra una sola vez al hablar con un NPC',()=>{
+  const state=generateWorld(77);const target=state.actors.find(a=>a.id===state.selectedActorId)??state.actors[0]!;state.selectedActorId=target.id;state.player.x=target.x;state.player.y=target.y; say(state,'hola');const playerLine=state.log.findLast(entry=>entry.kind==='dialogue'&&entry.text.startsWith('Tú:'));assert.equal(playerLine?.actorId,target.id);
+
  const s=generateWorld(123);initializeWorld(s);
  const actor=s.actors.find(a=>a.alive);assert.ok(actor);
  actor.x=s.player.x+1;actor.y=s.player.y;s.selectedActorId=actor.id;

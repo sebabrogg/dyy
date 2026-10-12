@@ -30,5 +30,5 @@ export function generateWorld(seed=WORLD_SEED):WorldState{
   const connected=d<=10&&(a.faction===b.faction||socialRng.next()<.28);
   if(connected){const strength=socialRng.int(35,85);a.social.contacts[b.id]=strength;b.social.contacts[a.id]=strength;}
  }
- return{seed,width,height,tiles,actors,player:{x:15,y:12,health:82,sanity:74,hunger:21,sleepDebtMinutes:0,inventory:[{id:'water',name:'Agua recuperada',quantity:1,description:'Agua filtrada con un regusto metálico.'},{id:'scrap',name:'Chatarra útil',quantity:3,description:'Piezas que todavía podrían servir.'},{id:'ration',name:'Ración comprimida',quantity:1,description:'Alimento barato y difícil de tragar.'}]},tick:0,day:1,minute:360,selectedActorId:null,selectedTile:null,log:[],quests:[],running:true};
+ return{paused:false,elapsedWorldMs:0,lastClockUpdate:Date.now(),seed,width,height,tiles,actors,player:{x:15,y:12,health:82,sanity:74,hunger:21,sleepDebtMinutes:0,inventory:[{id:'water',name:'Agua recuperada',quantity:1,description:'Agua filtrada con un regusto metálico.'},{id:'scrap',name:'Chatarra útil',quantity:3,description:'Piezas que todavía podrían servir.'},{id:'ration',name:'Ración comprimida',quantity:1,description:'Alimento barato y difícil de tragar.'}]},tick:0,day:1,minute:360,selectedActorId:null,selectedTile:null,log:[],quests:[],running:true};
 }

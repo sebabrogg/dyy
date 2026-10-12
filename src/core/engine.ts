@@ -77,7 +77,7 @@ export function moveTo(s:WorldState,x:number,y:number):void{
 }
 export function walkStep(s:WorldState,x:number,y:number):boolean{if(Math.abs(x-s.player.x)+Math.abs(y-s.player.y)!==1||!walkable(s,x,y))return false;s.player.x=x;s.player.y=y;s.selectedTile={x,y};s.selectedActorId=null;refreshVisibility(s);return true;}
 export function advanceWorld(s:WorldState):void{tickWorld(s);const debt=(s.player.sleepDebtMinutes??0)+1;s.player.sleepDebtMinutes=debt;const previousHunger=s.player.hunger;s.player.hunger=Math.min(100,s.player.hunger+.25);if(previousHunger<70&&s.player.hunger>=70)addLog(s,'El hambre empieza a distraerte.','feeling');if(previousHunger<90&&s.player.hunger>=90)addLog(s,'El hambre te debilita; cuesta ignorarla.','feeling');if(debt>720&&debt%30===0)s.player.sanity=Math.max(0,s.player.sanity-1);}
-export function sleep(s:WorldState):void{s.player.sleepDebtMinutes=0;s.player.sanity=Math.min(100,s.player.sanity+12);s.player.hunger=Math.min(100,s.player.hunger+4);addLog(s,"Dormiste y recuperaste parte de la estabilidad mental. El hambre sigue ahí.","feeling");}
+export function sleep(s:WorldState):void{const near=[tileAt(s,s.player.x,s.player.y),tileAt(s,s.player.x+1,s.player.y),tileAt(s,s.player.x-1,s.player.y),tileAt(s,s.player.x,s.player.y+1),tileAt(s,s.player.x,s.player.y-1)];if(!near.some(t=>t?.terrain==="door"||t?.terrain==="building")){addLog(s,"No puedes dormir a la intemperie. Busca un refugio o una entrada protegida.","warning");return;}s.player.sleepDebtMinutes=0;s.player.sanity=Math.min(100,s.player.sanity+12);s.player.hunger=Math.min(100,s.player.hunger+4);s.elapsedWorldMs=(s.elapsedWorldMs??0)+10800000;s.lastClockUpdate=Date.now();addLog(s,"Descansas en un lugar protegido. Recuperas estabilidad, pero aumenta el hambre.","feeling");}
 export function waitTurn(s:WorldState):void{tickWorld(s);addLog(s,'Dejas pasar cinco minutos. El barrio sigue funcionando sin pedirte permiso.','action');}
 export function inspect(s:WorldState):void{
  const a=s.selectedActorId?s.actors.find(v=>v.id===s.selectedActorId):undefined;
@@ -184,6 +184,7 @@ export function talk(s:WorldState,text?:string,options:{suppressDialogue?:boolea
 }
 export function selectActor(s:WorldState,id:string):void{const a=s.actors.find(v=>v.id===id);if(a&&canSee(s,a)){s.selectedActorId=id;s.selectedTile={x:a.x,y:a.y};}}
 export function say(s:WorldState,text:string,options:{suppressDialogue?:boolean}={}):void{const clean=text.trim();if(!clean)return;const a=s.selectedActorId?s.actors.find(v=>v.id===s.selectedActorId):undefined;if(!a||!canSee(s,a)||distance(s.player,a)>2){addLog(s,'Tu voz se pierde entre motores y lluvia. Nadie responde.','action');tickWorld(s);return;}addLog(s,'Tú: «'+clean+'»','dialogue');talk(s,clean,options);}
+export function giveItemFromChat(s:WorldState,text:string):boolean{const lower=text.toLowerCase();const phrases=["te voy a dar ","te doy ","toma ","te entrego ","quiero darte "];const phrase=phrases.find(p=>lower.includes(p));if(!phrase)return false;const wanted=lower.slice(lower.indexOf(phrase)+phrase.length).trim().replace(/[.!?,]+$/g,"");const actor=s.selectedActorId?s.actors.find(a=>a.id===s.selectedActorId):undefined;if(!actor||!actor.alive||!canSee(s,actor)||distance(s.player,actor)>2){addLog(s,"Necesitas estar junto a alguien para entregarle un objeto.","warning");return true;}const item=s.player.inventory.find(i=>i.quantity>0&&(wanted.includes(i.name.toLowerCase())||wanted.includes(i.id.toLowerCase())||i.name.toLowerCase().includes(wanted)));if(!item){addLog(s,"No tienes ese objeto para entregárselo.","warning");return true;}item.quantity--;if(!actor.inventory)actor.inventory=[];const existing=actor.inventory.find(i=>i.id===item.id);if(existing)existing.quantity++;else actor.inventory.push({...item,quantity:1});addLog(s,"Tú: «"+text+"»","dialogue");addLog(s,"Le entregas "+item.name+" a "+actor.name+".","action");tickWorld(s);return true;}
 export function interactWorld(s:WorldState):void{
  const tile=s.selectedTile?tileAt(s,s.selectedTile.x,s.selectedTile.y):tileAt(s,s.player.x,s.player.y);
  if(!tile){addLog(s,'No hay nada con lo que puedas interactuar.','warning');return;}
@@ -201,12 +202,12 @@ export function interactWorld(s:WorldState):void{
  else addLog(s,'Recuperaste una pieza de chatarra útil.','action');
  tickWorld(s);
 }
-export function useItem(s:WorldState):void{
- const ration=s.player.inventory.find(i=>i.id==='ration'&&i.quantity>0);
+export function useItem(s:WorldState,itemId?:string):void{
+ const ration=s.player.inventory.find(i=>i.id==='ration'&&i.quantity>0&&(!itemId||i.id===itemId));
  if(ration){ration.quantity--;s.player.hunger=Math.max(0,s.player.hunger-28);tickWorld(s);addLog(s,'Consumes una ración comprimida. El sabor es peor que el hambre.','action');return;}
- const water=s.player.inventory.find(i=>i.id==='water'&&i.quantity>0);
+ const water=s.player.inventory.find(i=>i.id==='water'&&i.quantity>0&&(!itemId||i.id===itemId));
  if(water){water.quantity--;s.player.sanity=Math.min(100,s.player.sanity+2);tickWorld(s);addLog(s,'Bebes agua filtrada. No parece del todo segura.','action');return;}
  addLog(s,'No tienes ningún objeto utilizable.','warning');
 }
 export function seedLabel(seed:number):string{return seed.toString(16).toUpperCase().padStart(8,'0');}
-export function formatClock(s:WorldState):string{const n=new Date();const real=n.getHours()*60+n.getMinutes();const m=(real*2)%1440;s.minute=m;s.day=Math.floor(n.getTime()/86400000)%365+1;const h=Math.floor(m/60),mm=m%60;const phase=h>=6&&h<18?'DÍA':'NOCHE';return 'DÍA '+String(s.day).padStart(3,'0')+' · '+String(h).padStart(2,'0')+':'+String(mm).padStart(2,'0')+' · '+phase;}
+export function formatClock(s:WorldState):string{const now=Date.now();if(s.lastClockUpdate===undefined){s.lastClockUpdate=now;s.elapsedWorldMs=s.elapsedWorldMs??0;}if(!s.paused)s.elapsedWorldMs=(s.elapsedWorldMs??0)+Math.max(0,now-s.lastClockUpdate);s.lastClockUpdate=now;const elapsed=s.elapsedWorldMs??0;s.day=Math.floor(elapsed/43200000)+1;s.minute=Math.floor(elapsed/30000)%1440;const h=Math.floor(s.minute/60),mm=s.minute%60;const phase=h>=6&&h<18?"DÍA":"NOCHE";return "DÍA "+String(s.day).padStart(3,"0")+" · "+String(h).padStart(2,"0")+":"+String(mm).padStart(2,"0")+" · "+phase;}

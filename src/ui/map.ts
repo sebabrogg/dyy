@@ -7,10 +7,9 @@ export function drawMap(canvas:HTMLCanvasElement,s:WorldState):MapView{
  const rect=canvas.getBoundingClientRect(),dpr=Math.min(window.devicePixelRatio||1,2);
  if(canvas.width!==Math.round(rect.width*dpr)||canvas.height!==Math.round(rect.height*dpr)){canvas.width=Math.round(rect.width*dpr);canvas.height=Math.round(rect.height*dpr);}
  ctx.setTransform(dpr,0,0,dpr,0,0);ctx.clearRect(0,0,rect.width,rect.height);
- const tileW=Math.max(13,Math.min(30,rect.width/(s.width+s.height)*1.8,rect.height/(s.width+s.height)*1.55));
- const tileH=tileW*.5, mapW=(s.width+s.height)*tileW/2,mapH=(s.width+s.height)*tileH/2;
- const originX=(rect.width-mapW)/2+(s.height*tileW/2),originY=(rect.height-mapH)/2+10;
- const center=(x:number,y:number)=>({x:originX+(x-y)*tileW/2,y:originY+(x+y)*tileH/2});
+ const tileW=Math.max(13,Math.min(48,rect.width/18,rect.height/12));
+ const tileH=tileW*.5,originX=rect.width/2,originY=rect.height/2;
+ const center=(x:number,y:number)=>({x:rect.width/2+((x-s.player.x)-(y-s.player.y))*tileW/2,y:rect.height/2+((x-s.player.x)+(y-s.player.y))*tileH/2});
  // Draw back-to-front, giving every tile a clear diamond footprint.
  for(let sum=0;sum<s.width+s.height;sum++)for(let y=Math.max(0,sum-s.width+1);y<=Math.min(s.height-1,sum);y++){
   const x=sum-y,t=s.tiles[indexOf(x,y,s.width)]!,p=center(x,y);
@@ -36,9 +35,8 @@ export function drawMap(canvas:HTMLCanvasElement,s:WorldState):MapView{
  return{tileW,tileH,originX,originY,scale:1};
 }
 export function tileFromPointer(canvas:HTMLCanvasElement,s:WorldState,clientX:number,clientY:number):{x:number;y:number}|null{
- const rect=canvas.getBoundingClientRect(),tileW=Math.max(13,Math.min(30,rect.width/(s.width+s.height)*1.8,rect.height/(s.width+s.height)*1.55)),tileH=tileW*.5;
- const mapW=(s.width+s.height)*tileW/2,mapH=(s.width+s.height)*tileH/2,originX=(rect.width-mapW)/2+(s.height*tileW/2),originY=(rect.height-mapH)/2+10;
- const px=clientX-rect.left-originX,py=clientY-rect.top-originY;
- const x=Math.round(px/tileW+py/tileH),y=Math.round(py/tileH-px/tileW);
+ const rect=canvas.getBoundingClientRect(),tileW=Math.max(13,Math.min(48,rect.width/18,rect.height/12)),tileH=tileW*.5;
+ const px=clientX-rect.left-rect.width/2,py=clientY-rect.top-rect.height/2;
+ const x=Math.round(px/tileW+py/tileH+s.player.x),y=Math.round(py/tileH-px/tileW+s.player.y);
  return tileAt(s,x,y)?{x,y}:null;
 }

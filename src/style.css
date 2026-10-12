@@ -195,3 +195,5 @@ body { overflow: hidden !important; }
 .log-entry.perception .log-category{display:none}
 
 .internal-state{border-left:2px solid #b77b48;padding:8px 10px;margin:6px 0 14px;color:#c9c4b8;font-size:12px;line-height:1.45;background:#181c1e}.fatigue-popup{position:fixed;right:18px;bottom:18px;z-index:1000;width:min(320px,calc(100vw - 36px));padding:16px;border:1px solid #a86e4b;background:#15191b;box-shadow:0 12px 42px #000b;color:#e2ddd3}.fatigue-popup[hidden]{display:none}.fatigue-popup strong{font-size:11px;letter-spacing:.12em}.fatigue-popup p{font-size:13px;line-height:1.5;color:#c9c4b8}.fatigue-popup button{border:1px solid #5a6263;background:#22282a;color:#e2ddd3;padding:8px 12px;cursor:pointer}
+
+.use-inventory-item{margin-top:8px;padding:6px 9px;font-size:9px}.use-inventory-item:disabled{opacity:.35;cursor:not-allowed}.world-meta{flex-wrap:wrap;gap:10px}.map-frame{background-size:22px 22px}

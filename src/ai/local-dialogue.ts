@@ -24,17 +24,23 @@ async function checkLocalBridge(endpoint:string,onStatus?:(status:string)=>void)
 
 export interface DialogueContext {
  actorName:string; faction:string; personality:string; goal:string;
- disposition:string; relationship:string; memories:string[];
+ disposition:string; relationship:string; memories:string[]; playerKnowledge:string[];
+ playerIdentity:string; observedPlayer:string;
  playerLine:string; engineLine:string; internalMind:string; lifeMission:string;
 }
 
 export function buildDialogueContext(actor:Actor,playerLine:string,engineLine:string):DialogueContext {
  const relation=actor.social.relationships.player;
+ const memories=actor.social.memories.filter(memory=>memory.targetId==='player').slice(-12);
+ const knowledge=actor.social.knowledge.filter(fact=>fact.targetId==='player'||fact.subjectId==='player').slice(-12);
  return {
   actorName:actor.name,faction:actor.faction,personality:actor.personality,goal:actor.goal,
   disposition:actor.disposition,
   relationship:relation?'confianza '+relation.trust+'/100; hostilidad '+relation.hostility+'/100; resentimiento '+relation.resentment+'/100; miedo '+relation.fear+'/100':'relación desconocida',
-  memories:actor.social.memories.filter(memory=>memory.targetId==='player').slice(-8).map(memory=>memory.description||memory.interpretation),
+  memories:memories.map(memory=>'T+'+memory.tick+' ['+memory.kind+', importancia '+memory.salience+'/100] '+(memory.description||memory.interpretation)),
+  playerKnowledge:knowledge.map(fact=>'T+'+fact.tick+' ['+fact.source+', confianza '+fact.confidence+'/100, saltos '+fact.hops+'] '+fact.interpretation),
+  playerIdentity:'La persona que tengo delante es el jugador. No conozco automáticamente su nombre, historia, estadísticas, inventario ni pensamientos. Solo puedo atribuirle identidad o características que haya observado, que me haya contado o que me hayan llegado por una fuente identificable.',
+  observedPlayer:'El jugador está interactuando conmigo ahora. No deduzcas heridas, equipo, intenciones ni estado mental sin evidencia explícita.',
   playerLine:playerLine.slice(0,500),engineLine:engineLine.slice(0,240),
   internalMind:JSON.stringify(actor.mind),lifeMission:JSON.stringify(actor.lifeMission),
  };
@@ -43,7 +49,10 @@ export function buildDialogueContext(actor:Actor,playerLine:string,engineLine:st
 export function buildDialogueMessages(context:DialogueContext):Array<{role:'system'|'user';content:string}> {
  const system=[
   'Eres la voz de un NPC de Dysto, un RPG distópico. Habla en español rioplatense natural, sin exagerar el lunfardo.',
-  'Interpreta el mensaje del jugador como este personaje concreto. Decide por ti mismo qué piensa, siente, quiere comunicar, ocultar, negar o preguntar, usando su personalidad, biografía interna, memoria, conocimientos, objetivos y relación con el jugador.',
+  'Eres una persona concreta con continuidad mental, no un asistente que intenta complacer al jugador. Conoces tu propia identidad, historia, necesidades, capacidades, límites, objetivos y contradicciones; estos elementos condicionan tus decisiones.',
+  'Construye tu imagen del jugador únicamente con observaciones propias, cosas que te haya dicho, recuerdos y rumores atribuidos a una fuente. Distingue hechos observados, inferencias y rumores. Puedes desconocer quién es, equivocarte o sostener una impresión injusta.',
+  'No tienes acceso omnisciente al estado del juego. No conoces automáticamente el inventario, las estadísticas, la identidad real, las intenciones privadas ni los sucesos fuera de tu percepción. No uses información privada de tu contexto como si el jugador u otros personajes también la conocieran.',
+  'Interpreta el mensaje del jugador como este personaje concreto. Decide qué piensa, siente, quiere comunicar, ocultar, negar o preguntar, usando personalidad, biografía, memoria, conocimiento, objetivos y relación con el jugador.',
   'No hay respuesta base ni diálogo prefabricado. No reveles datos privados solo porque estén en tu contexto; decide si este personaje los compartiría en esta situación.',
   'No afirmes como hechos cosas que no estén respaldadas por el contexto. Puedes mentir, equivocarte, evadir o expresar incertidumbre si encaja con el personaje, pero no cambies el estado real del mundo.',
   'Devuelve solo lo que diría el personaje, en una o dos frases breves. Sin etiquetas, explicaciones, comillas ni narración externa.',
@@ -52,7 +61,10 @@ export function buildDialogueMessages(context:DialogueContext):Array<{role:'syst
   'PERSONAJE: '+context.actorName,'FACCIÓN: '+context.faction,
   'PERSONALIDAD: '+context.personality,'OBJETIVO: '+context.goal,
   'DISPOSICIÓN: '+context.disposition,'RELACIÓN CON EL JUGADOR: '+context.relationship,
+  'IDENTIDAD Y LÍMITES DE CONOCIMIENTO SOBRE EL JUGADOR: '+(context.playerIdentity||'Solo sé que la persona que tengo delante es el jugador; no conozco automáticamente su nombre ni su historia.'),
+  'OBSERVACIÓN ACTUAL DEL JUGADOR: '+(context.observedPlayer||'No afirmes conocer estados o detalles no observados.'),
   'RECUERDOS RELEVANTES SOBRE EL JUGADOR: '+(context.memories.join(' | ')||'ninguno registrado'),
+  'CONOCIMIENTO Y RUMORES SOBRE EL JUGADOR (con fuente y confianza): '+((context.playerKnowledge||[]).join(' | ')||'ninguno registrado; no inventes información previa'),
   'CONTEXTO MENTAL INTERNO (no lo recites; úsalo para razonar): '+context.internalMind,
   'MISIÓN VITAL PRIVADA: '+context.lifeMission,
   'EL JUGADOR DIJO: '+context.playerLine,

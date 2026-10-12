@@ -17,6 +17,11 @@ test('el prompt deja decidir al modelo desde la mente interna sin respuesta pref
  assert.match(messages[0]!.content,/No afirmes como hechos/);
  assert.match(messages[1]!.content,/CONTEXTO MENTAL INTERNO/);
  assert.match(messages[1]!.content,/MISIÓN VITAL PRIVADA/);
+ assert.match(messages[0]!.content,/no un asistente que intenta complacer/);
+ assert.match(messages[0]!.content,/No tienes acceso omnisciente/);
+ assert.match(messages[1]!.content,/IDENTIDAD Y LÍMITES DE CONOCIMIENTO SOBRE EL JUGADOR/);
+ assert.match(messages[1]!.content,/no conozco automáticamente su nombre ni su historia/);
+ assert.match(messages[1]!.content,/CONOCIMIENTO Y RUMORES SOBRE EL JUGADOR/);
  assert.match(messages[1]!.content,/Marta/);
 });
 

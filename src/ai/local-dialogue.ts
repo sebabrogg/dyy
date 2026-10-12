@@ -31,12 +31,16 @@ export interface DialogueContext {
 
 export function buildDialogueContext(actor:Actor,playerLine:string,engineLine:string):DialogueContext {
  const relation=actor.social.relationships.player;
- const memories=actor.social.memories.filter(memory=>memory.targetId==='player').slice(-12);
+ const allMemories=actor.social.memories.filter(memory=>memory.targetId==='player');
+ const recentMemories=allMemories.slice(-8);
+ const recentIds=new Set(recentMemories.map(memory=>memory.id));
+ const salientMemories=allMemories.filter(memory=>!recentIds.has(memory.id)).sort((a,b)=>b.salience-a.salience).slice(0,4);
+ const memories=[...new Map([...salientMemories,...recentMemories].map(memory=>[memory.id,memory])).values()].sort((a,b)=>a.tick-b.tick);
  const knowledge=actor.social.knowledge.filter(fact=>fact.targetId==='player'||fact.subjectId==='player').slice(-12);
  return {
   actorName:actor.name,faction:actor.faction,personality:actor.personality,goal:actor.goal,
   disposition:actor.disposition,
-  relationship:relation?'confianza '+relation.trust+'/100; hostilidad '+relation.hostility+'/100; resentimiento '+relation.resentment+'/100; miedo '+relation.fear+'/100':'relación desconocida',
+  relationship:relation?'confianza '+relation.trust+'/100; hostilidad '+relation.hostility+'/100; resentimiento '+relation.resentment+'/100; miedo '+relation.fear+'/100; respeto '+relation.respect+'/100; afecto '+relation.affection+'/100; deuda '+relation.debt+'/100':'relación desconocida',
   memories:memories.map(memory=>'T+'+memory.tick+' ['+memory.kind+', importancia '+memory.salience+'/100] '+(memory.description||memory.interpretation)),
   playerKnowledge:knowledge.map(fact=>'T+'+fact.tick+' ['+fact.source+', confianza '+fact.confidence+'/100, saltos '+fact.hops+'] '+fact.interpretation),
   playerIdentity:'La persona que tengo delante es el jugador. No conozco automáticamente su nombre, historia, estadísticas, inventario ni pensamientos. Solo puedo atribuirle identidad o características que haya observado, que me haya contado o que me hayan llegado por una fuente identificable.',
@@ -52,6 +56,8 @@ export function buildDialogueMessages(context:DialogueContext):Array<{role:'syst
   'Eres una persona concreta con continuidad mental, no un asistente que intenta complacer al jugador. Conoces tu propia identidad, historia, necesidades, capacidades, límites, objetivos y contradicciones; estos elementos condicionan tus decisiones.',
   'Construye tu imagen del jugador únicamente con observaciones propias, cosas que te haya dicho, recuerdos y rumores atribuidos a una fuente. Distingue hechos observados, inferencias y rumores. Puedes desconocer quién es, equivocarte o sostener una impresión injusta.',
   'No tienes acceso omnisciente al estado del juego. No conoces automáticamente el inventario, las estadísticas, la identidad real, las intenciones privadas ni los sucesos fuera de tu percepción. No uses información privada de tu contexto como si el jugador u otros personajes también la conocieran.',
+  'La relación tiene dimensiones independientes: confianza, hostilidad, resentimiento, miedo, respeto, afecto y deuda. No las promedies ni las conviertas en una sola actitud: alguien puede deberte la vida y seguir odiándote, respetarte y desconfiar de ti, o temerte sin respetarte.',
+  'Los recuerdos recientes dan continuidad a la conversación; los recuerdos de mayor importancia pueden seguir influyendo aunque sean antiguos. Una ayuda no borra una traición, una disculpa no garantiza perdón y una relación no cambia de golpe sin evidencia suficiente.',
   'Interpreta el mensaje del jugador como este personaje concreto. Decide qué piensa, siente, quiere comunicar, ocultar, negar o preguntar, usando personalidad, biografía, memoria, conocimiento, objetivos y relación con el jugador.',
   'No hay respuesta base ni diálogo prefabricado. No reveles datos privados solo porque estén en tu contexto; decide si este personaje los compartiría en esta situación.',
   'No afirmes como hechos cosas que no estén respaldadas por el contexto. Puedes mentir, equivocarte, evadir o expresar incertidumbre si encaja con el personaje, pero no cambies el estado real del mundo.',

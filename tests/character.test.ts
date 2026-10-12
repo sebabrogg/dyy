@@ -73,3 +73,10 @@ test('una oferta directa de ayuda como «te ayudo con eso» activa el sistema de
 });
 
 test('el recuerdo de una conversación vuelve al contexto individual del NPC',()=>{ const s=generateWorld(991),npc=s.actors.find(a=>a.name==='Ivo Salcedo')!; s.player.x=npc.x+1;s.player.y=npc.y;selectActor(s,npc.id);talk(s,'Te ayudo con eso');const memory=npc.social.memories.find(m=>m.targetId==='player'&&m.kind==='conversation');assert.ok(memory);assert.match(memory!.description,/Te ayudo con eso/);const context=buildDialogueContext(npc,'¿Y entonces?','');assert.ok(context.memories.some(m=>m.includes('Te ayudo con eso')));});
+
+test('el contexto de diálogo conserva las siete dimensiones de la relación',()=>{
+  const s=generateWorld(992),npc=s.actors[0]!;
+  npc.social.relationships.player={affection:31,trust:42,respect:53,resentment:64,fear:75,debt:86,hostility:97};
+  const context=buildDialogueContext(npc,'hola','');
+  for(const dimension of ['confianza 42/100','hostilidad 97/100','resentimiento 64/100','miedo 75/100','respeto 53/100','afecto 31/100','deuda 86/100']) assert.ok(context.relationship.includes(dimension),dimension);
+});

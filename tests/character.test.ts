@@ -58,3 +58,15 @@ test('examinar un NPC solo revela señales observables y nunca su biografía int
   const output=s.log.map(e=>e.text).join('\n');
   assert.doesNotMatch(output,/IQ|misión vital|trauma|historia:|conocimientos:|fortalezas:|limitaciones:|años|razonamiento|personalidad \(/i);
 });
+
+
+test('una oferta directa de ayuda como «te ayudo con eso» activa el sistema de encargos',()=>{
+  const s=generateWorld(),npc=s.actors.find(a=>a.name==='Ivo Salcedo')!;
+  s.player.x=npc.x+1;s.player.y=npc.y;
+  selectActor(s,npc.id);
+  talk(s,'te ayudo con eso?');
+  assert.equal(s.quests.length,1);
+  assert.equal(s.quests[0]!.giverId,npc.id);
+  assert.equal(s.quests[0]!.status,'offered');
+  assert.ok(s.log.some(entry=>entry.text.includes('te propone un encargo')));
+});

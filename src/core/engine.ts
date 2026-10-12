@@ -91,7 +91,7 @@ export function talk(s:WorldState,text?:string,options:{suppressDialogue?:boolea
   addLog(s,a.name+' no te ha ofrecido ningún encargo que puedas aceptar.','warning');return;
  }
  if(/\b(rechazo|no acepto|no me interesa|dejalo)\b/.test(clean)&&offered){offered.status='declined';addLog(s,'Rechazaste el encargo de '+a.name+'. Su objetivo personal continúa.','action');tickWorld(s);return;}
- const asksForWork=/\b(ayuda|ayudame|trabajo|encargo|mision|misiones|que necesitas|que necesitas de mi|en que puedo ayudar|tenes algun problema|tienes algun problema)\b/.test(clean);
+ const asksForWork=/\b(ayuda|ayudar|ayudame|ayudo|ayudarte|ayudarte con eso|puedo ayudarte|queres que te ayude|quieres que te ayude|te doy una mano|trabajo|encargo|mision|misiones|que necesitas|que necesitas de mi|en que puedo ayudar|tenes algun problema|tienes algun problema)\b/.test(clean);
  const event=text?classifyUtterance(text):null;
  if(event){
   const publicInsult=/(delante de todos|en público|frente a todos|con todos mirando)/i.test(text??'');

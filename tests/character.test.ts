@@ -49,6 +49,7 @@ test('un NPC elegible puede ofrecer un encargo y el jugador aceptarlo explícita
   talk(s,'acepto');
   assert.equal(s.quests[0]!.status,'accepted');
   assert.equal(s.quests[0]!.acceptedAtTick!==null,true);
+  assert.ok(s.quests[0]!.deadlineTick>s.tick);
 });
 
 

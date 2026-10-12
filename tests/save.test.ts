@@ -23,3 +23,13 @@ test('rechaza guardados corruptos o de una versión desconocida',()=>{
  assert.throws(()=>decodeSave(JSON.stringify({version:SAVE_VERSION+1,state:{}})),/Versión/);
  assert.throws(()=>decodeSave(JSON.stringify({version:SAVE_VERSION,state:{seed:1}})),/estructura/);
 });
+
+test('migra guardados v1 asignando un plazo a los encargos antiguos sin romper partidas',()=>{
+ const world=generateWorld(4402),giver=world.actors[0]!;
+ world.quests.push({id:'old-quest',giverId:giver.id,missionId:giver.lifeMission.id,title:'Encargo antiguo',description:'Prueba',objective:'Volver',requirements:['medicina'],reward:'nada',status:'accepted',offeredAtTick:1,acceptedAtTick:2,deadlineTick:100});
+ const old=JSON.parse(encodeSave(world)) as {version:number;state:typeof world};
+ old.version=1;delete (old.state.quests[0] as Partial<typeof old.state.quests[number]>).deadlineTick;
+ const loaded=decodeSave(JSON.stringify(old));
+ assert.ok(loaded.quests[0]!.deadlineTick>loaded.tick);
+ assert.equal(loaded.quests[0]!.status,'accepted');
+});

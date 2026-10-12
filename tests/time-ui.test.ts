@@ -1,0 +1,6 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {advanceWorld,formatClock,sleep,tileAt} from '../src/core/engine.ts';
+import {generateWorld} from '../src/world/generate.ts';
+test('el reloj solo avanza por ticks activos de la partida',()=>{const s=generateWorld(501);s.elapsedWorldMs=0;s.lastClockUpdate=Date.now()-86400000;assert.match(formatClock(s),/DÍA 001 · 00:00/);assert.equal(s.elapsedWorldMs,0);advanceWorld(s);assert.equal(s.elapsedWorldMs,60000);assert.match(formatClock(s),/DÍA 001 · 00:01/);s.paused=true;const elapsed=s.elapsedWorldMs;formatClock(s);assert.equal(s.elapsedWorldMs,elapsed);});
+test('dormir avanza ocho horas y simula actividad del mundo',()=>{const s=generateWorld(502);s.player.sleepDebtMinutes=800;s.player.sanity=40;for(const [x,y] of [[s.player.x,s.player.y],[s.player.x+1,s.player.y],[s.player.x-1,s.player.y],[s.player.x,s.player.y+1],[s.player.x,s.player.y-1]]){const t=tileAt(s,x,y);if(t)t.terrain='floor';}const tick=s.tick;sleep(s);assert.equal(s.player.sleepDebtMinutes,800);assert.equal(s.tick,tick);tileAt(s,s.player.x+1,s.player.y)!.terrain='door';sleep(s);assert.equal(s.player.sleepDebtMinutes,0);assert.equal(s.elapsedWorldMs,8*60*60*1000);assert.equal(s.tick,tick+480);assert.ok(s.player.sanity>40);});

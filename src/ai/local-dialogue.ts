@@ -62,6 +62,7 @@ export function buildDialogueMessages(context:DialogueContext):Array<{role:'syst
   'No tienes acceso omnisciente al estado del juego. No conoces automáticamente el inventario, las estadísticas, la identidad real, las intenciones privadas ni los sucesos fuera de tu percepción. No uses información privada de tu contexto como si el jugador u otros personajes también la conocieran.',
   'Tu ubicación importa. Solo menciona lugares que conoces y que figuran en los lugares reales de tu entorno. Si no sabes dónde está algo, dilo o da una pista incierta; no inventes clínicas, depósitos, edificios ni coordenadas. Distingue entre conocer un lugar y saber que un objeto está allí.',
   'La relación tiene dimensiones independientes: confianza, hostilidad, resentimiento, miedo, respeto, afecto y deuda. No las promedies ni las conviertas en una sola actitud: alguien puede deberte la vida y seguir odiándote, respetarte y desconfiar de ti, o temerte sin respetarte.',
+  'REGLA CRÍTICA DE CONTINUIDAD: la lista MEMORIAS y CONOCIMIENTO DEL JUGADOR es la única evidencia de interacciones anteriores. Si no hay memoria de una conversación, no digas «otra vez», «ya te lo dije», «como la última vez» ni des por compartido un pasado. Si no hay evidencia de una agresión, nunca afirmes que golpeaste, atacaste o amenazaste al jugador. No inventes nombres, apodos, disputas, objetos que proteges ni hechos de tu biografía para rellenar silencios. La relación desconocida significa que no tienes historia personal confirmada con el jugador; puedes ser cauteloso, pero no actuar como si lo conocieras.',
   'Los recuerdos recientes dan continuidad a la conversación; los recuerdos de mayor importancia pueden seguir influyendo aunque sean antiguos. Una ayuda no borra una traición, una disculpa no garantiza perdón y una relación no cambia de golpe sin evidencia suficiente.',
   'Interpreta el mensaje del jugador como este personaje concreto. Decide qué piensa, siente, quiere comunicar, ocultar, negar o preguntar, usando personalidad, biografía, memoria, conocimiento, objetivos y relación con el jugador.',
   'No hay respuesta base ni diálogo prefabricado. No reveles datos privados solo porque estén en tu contexto; decide si este personaje los compartiría en esta situación.',
@@ -101,6 +102,18 @@ export function cleanNpcLine(value:string):string {
  return unique.join(' ').replace(/\s+/g,' ').trim().slice(0,320);
 }
 
+export function validateNpcLineGrounding(value:string,context:DialogueContext):string {
+ const line=cleanNpcLine(value);
+ if(!line)return 'No te conozco lo suficiente como para asumir qué pasó antes. Contame qué necesitás y te escucho.';
+ const evidence=[...(context.memories??[]),...(context.playerKnowledge??[])].join(' ').toLocaleLowerCase('es');
+ const normalized=line.toLocaleLowerCase('es');
+ const unsupportedPast=[/\botra vez\b/,/\bya te lo dije\b/,/\como te dije\b/,/\la última vez\b/,/\ya hablamos de esto\b/,/\te lo advertí\b/];
+ if(unsupportedPast.some(pattern=>pattern.test(normalized))&&!/(habl|advert|dij|convers|discut|encuentr|avis|repet)/i.test(evidence))return 'No tengo claro si ya hablamos antes. Decime qué está pasando y vemos qué puedo hacer.';
+ const claimsViolence=/(te pegu[eé]|te golpe[eé]|te ataqu[eé]|te agred[ií]|te di una paliza|te amenac[eé])/i.test(normalized);
+ if(claimsViolence&&!/(golpe|peg[oó]|ataqu|agresi|amenaz|pelea|combate|dañ[oó])/i.test(evidence))return 'Pará, no voy a inventar que pasó algo entre nosotros. Te estoy escuchando: explicame qué ocurre.';
+ return line;
+}
+
 export async function generateLocalNpcLine(
  context:DialogueContext,
  options:{endpoint?:string;model?:string;sessionKey?:string;signal?:AbortSignal;onPartial?:(text:string)=>void;onStatus?:(status:string)=>void}={},
@@ -125,7 +138,7 @@ export async function generateLocalNpcLine(
   options.onStatus?.(provider==='opencode'?'IA OPENCODE · esperando respuesta…':'IA LOCAL · esperando respuesta del modelo…');
   const reader=response.body.getReader();
   const decoder=new TextDecoder();
-  let buffer='',assembled='',lastPublished='',modelDone=false;
+  let buffer='',assembled='',modelDone=false;
   while(!modelDone){
    const {done,value}=await reader.read();
    if(done)break;
@@ -137,8 +150,8 @@ export async function generateLocalNpcLine(
     const chunk=JSON.parse(line) as {message?:{content?:unknown};done?:boolean};
     if(typeof chunk.message?.content==='string'){
      assembled+=chunk.message.content;
-     const partial=cleanNpcLine(assembled);
-     if(partial&&partial!==lastPublished){lastPublished=partial;options.onPartial?.(partial);}
+     // No publiques texto crudo del modelo antes de validar continuidad y hechos.
+
     }
     if(chunk.done===true){modelDone=true;break;}
    }
@@ -149,9 +162,9 @@ export async function generateLocalNpcLine(
    const chunk=JSON.parse(buffer) as {message?:{content?:unknown}};
    if(typeof chunk.message?.content==='string')assembled+=chunk.message.content;
   }
-  const line=cleanNpcLine(assembled);
+  const line=validateNpcLineGrounding(assembled,context);
   if(!line)throw new Error('El modelo local devolvió una respuesta vacía');
-  if(line!==lastPublished)options.onPartial?.(line);
+  options.onPartial?.(line);
   return line;
  } catch(error) {
   if(timedOut)throw new Error('Ollama no generó una respuesta en 120 segundos. Revisá la carga de la PC y el puente local; el modelo puede estar tardando en arrancar.');

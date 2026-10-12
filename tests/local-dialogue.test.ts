@@ -65,3 +65,23 @@ test('consume respuestas NDJSON en streaming y publica parciales',async()=>{
   assert.deepEqual(partials,['No','No confío en vos.']);
  } finally {globalThis.fetch=oldFetch;}
 });
+
+
+test('termina al recibir done=true aunque el puente no cierre el stream',async()=>{
+ const encoder=new TextEncoder();
+ const oldFetch=globalThis.fetch;
+ globalThis.fetch=async(input)=>{
+  if(String(input).endsWith('/health'))return new Response(JSON.stringify({ok:true,models:['qwen2.5:3b']}),{status:200,headers:{'Content-Type':'application/json'}});
+  return new Response(new ReadableStream({
+   start(controller){controller.enqueue(encoder.encode('{"message":{"content":"Estoy ocupado."},"done":false}\n{"message":{"content":""},"done":true}\n'));}
+  }),{status:200,headers:{'Content-Type':'application/x-ndjson'}});
+ };
+ try {
+  const {generateLocalNpcLine}=await import('../src/ai/local-dialogue.ts');
+  const result=await Promise.race([
+   generateLocalNpcLine(context),
+   new Promise<never>((_,reject)=>setTimeout(()=>reject(new Error('el stream no terminó')),500))
+  ]);
+  assert.equal(result,'Estoy ocupado.');
+ } finally {globalThis.fetch=oldFetch;}
+});

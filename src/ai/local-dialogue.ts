@@ -108,8 +108,8 @@ export async function generateLocalNpcLine(
   options.onStatus?.('IA LOCAL · esperando respuesta del modelo…');
   const reader=response.body.getReader();
   const decoder=new TextDecoder();
-  let buffer='',assembled='',lastPublished='';
-  while(true){
+  let buffer='',assembled='',lastPublished='',modelDone=false;
+  while(!modelDone){
    const {done,value}=await reader.read();
    if(done)break;
    buffer+=decoder.decode(value,{stream:true});
@@ -123,8 +123,10 @@ export async function generateLocalNpcLine(
      const partial=cleanNpcLine(assembled);
      if(partial&&partial!==lastPublished){lastPublished=partial;options.onPartial?.(partial);}
     }
+    if(chunk.done===true){modelDone=true;break;}
    }
   }
+  if(modelDone)await reader.cancel().catch(()=>{});
   buffer+=decoder.decode();
   if(buffer.trim()){
    const chunk=JSON.parse(buffer) as {message?:{content?:unknown}};

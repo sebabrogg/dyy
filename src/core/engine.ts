@@ -6,7 +6,8 @@ import {questOfferFor} from './character.ts';
 const WALKABLE=new Set(['floor','road','scrap','grass','door']);
 const DIRECTIONS=[[1,0],[-1,0],[0,1],[0,-1]] as const;
 export function tileAt(s:WorldState,x:number,y:number){return x<0||y<0||x>=s.width||y>=s.height?undefined:s.tiles[indexOf(x,y,s.width)];}
-export function canSee(s:WorldState,a:Actor):boolean{return a.alive&&distance(s.player,a)<=7;}
+export function canSee(s:WorldState,a:Actor):boolean{return a.alive&&distance(s.player,a)<=12;}
+export function canIdentifyActor(s:WorldState,a:Actor):boolean{return a.alive&&distance(s.player,a)<=7;}
 export function visibleActors(s:WorldState):Actor[]{return s.actors.filter(a=>canSee(s,a));}
 function addLog(s:WorldState,text:string,kind:LogEntry['kind']='world'){s.log.push({tick:s.tick,text,kind});if(s.log.length>100)s.log.shift();}
 function occupied(s:WorldState,x:number,y:number,ignore?:string):boolean{return s.actors.some(a=>a.alive&&a.id!==ignore&&a.x===x&&a.y===y)||(s.player.x===x&&s.player.y===y);}
@@ -15,10 +16,11 @@ export function refreshVisibility(s:WorldState):void{for(const t of s.tiles)if(d
 export function initializeWorld(s:WorldState):void{refreshVisibility(s);addLog(s,'La lluvia ácida cae sobre las Calderas. Un altavoz repite las condiciones del toque de queda.','perception');addLog(s,'El puesto de control está activo. Nadie parece tener prisa por explicarte por qué.','perception');}
 function resolveQuestConsequences(s:WorldState):void{
  for(const quest of s.quests){
-  if(quest.status!=='accepted')continue;
   const giver=s.actors.find(a=>a.id===quest.giverId);
-  const deadOrMissing=!giver||!giver.alive;
   const worldMinute=Math.floor((s.elapsedWorldMs??0)/60000);
+  if(giver&&quest.status==='completed'&&quest.evidence?.startsWith('unverified-claim:')){const claimMinute=Number(quest.evidence.split(':')[1]??worldMinute);const audit=[...quest.id+giver.id].reduce((n,c)=>n+c.charCodeAt(0),0)%100;if(worldMinute>=claimMinute+360&&audit<Math.max(15,Math.min(70,100-(giver.social.relationships.player?.trust??giver.trust)))){quest.evidence='exposed-lie:'+worldMinute;const rel=giver.social.relationships.player;if(rel){rel.trust=Math.max(0,rel.trust-28);rel.respect=Math.max(0,rel.respect-16);rel.resentment=Math.min(100,rel.resentment+28);rel.hostility=Math.min(100,rel.hostility+18);}recordSocialEvent(giver,{kind:'betrayal',targetId:'player',tick:s.tick,severity:32,description:'Descubrió que el jugador mintió sobre el encargo «'+quest.title+'».',interpretation:'engaño descubierto tiempo después'});addLog(s,giver.name+' descubrió que mentiste sobre «'+quest.title+'». La confianza cae y el rumor puede llegar a otros contactos.','event');}continue;}
+  if(quest.status!=='accepted')continue;
+  const deadOrMissing=!giver||!giver.alive;
   const expired=quest.deadlineWorldMinute!==undefined?worldMinute>quest.deadlineWorldMinute:s.tick>quest.deadlineTick;
   if(!deadOrMissing&&!expired)continue;
   quest.status='failed';
@@ -135,9 +137,10 @@ export function talk(s:WorldState,text?:string,options:{suppressDialogue?:boolea
   recordSocialEvent(a,{kind:'help',targetId:'player',tick:s.tick,severity:16,description:'El jugador entregó '+item.name+' para el encargo «'+q.title+'».',interpretation:'cumplió una entrega'});
   addLog(s,'Entregaste '+item.name+' a '+a.name+'. Encargo completado: «'+q.title+'».','event');tickWorld(s);return;
  }
- const reportable=s.quests.filter(q=>q.giverId===a.id&&q.status==='accepted'&&['investigate_and_report','collect_scrap','clear_obstacle'].includes(q.objectiveType)&&q.progress>0);
+ const explicitClaim=/(termine|lo hice|ya esta|hecho|objetivo cumplido|encargo cumplido|listo|lo consegui|ya cumpli)/.test(clean);const reportable=s.quests.filter(q=>q.giverId===a.id&&q.status==='accepted'&&['investigate_and_report','collect_scrap','clear_obstacle'].includes(q.objectiveType)&&(q.progress>0||explicitClaim));
  if(reportable.length&&/(informo|investigue|encontre|volvi|tengo informacion|te cuento|ya investigue|ya volvi|esto es lo que vi|termine|lo hice|ya esta|hecho|objetivo cumplido|encargo cumplido|listo|lo consegui)/.test(clean)){
   for(const q of reportable){
+   if(q.progress<=0&&!q.evidence){const rel=a.social.relationships.player;const trust=rel?.trust??a.trust;const roll=([...a.id+q.id+String(s.tick)+clean].reduce((n,c)=>n+c.charCodeAt(0),0)%100);if(roll>=Math.max(8,Math.min(88,trust*0.72))){if(rel){rel.trust=Math.max(0,rel.trust-18);rel.respect=Math.max(0,rel.respect-8);rel.resentment=Math.min(100,rel.resentment+20);rel.hostility=Math.min(100,rel.hostility+12);}recordSocialEvent(a,{kind:'betrayal',targetId:'player',tick:s.tick,severity:24,description:'El jugador afirmó cumplir «'+q.title+'» sin progreso verificable.',interpretation:'posible engaño sobre un encargo'});addLog(s,a.name+' no te cree: no hay pruebas que respalden tu versión. La relación se resiente.','event');continue;}q.evidence='unverified-claim:'+s.tick;addLog(s,a.name+' acepta tu versión, pero no hay pruebas que la confirmen. Si descubre el engaño, habrá consecuencias.','event');}
    q.status='completed';
    a.lifeMission.progress=Math.min(a.lifeMission.steps.length,a.lifeMission.progress+1);
    if(a.lifeMission.progress>=a.lifeMission.steps.length)a.lifeMission.status='completed';
@@ -151,7 +154,7 @@ export function talk(s:WorldState,text?:string,options:{suppressDialogue?:boolea
  if(text?.trim()&&!event)recordSocialEvent(a,{kind:'conversation',targetId:'player',tick:s.tick,severity:8,description:'El jugador me dijo: «'+text.trim().slice(0,240)+'»',interpretation:'interacción recordada'});
  const offered=s.quests.find(q=>q.giverId===a.id&&q.status==='offered');
  if(/\b(acepto|aceptar|acepto el encargo|me encargo|lo hare|lo hago)\b/.test(clean)){
-  if(offered){const worldMinute=Math.floor((s.elapsedWorldMs??0)/60000);offered.status='accepted';offered.acceptedAtTick=s.tick;offered.acceptedAtWorldMinute=worldMinute;offered.offeredAtWorldMinute=offered.offeredAtWorldMinute??worldMinute;offered.deadlineWorldMinute=worldMinute+2880+offered.requirements.length*360;offered.deadlineTick=Number.MAX_SAFE_INTEGER;addLog(s,'Aceptaste el encargo de '+a.name+': '+offered.title+'. Plazo: '+Math.floor((offered.deadlineWorldMinute-worldMinute)/1440)+' días de tiempo del mundo. Objetivo actual: '+offered.objective+'.','event');tickWorld(s);return;}
+  if(offered){const worldMinute=Math.floor((s.elapsedWorldMs??0)/60000);offered.status='accepted';offered.acceptedAtTick=s.tick;offered.acceptedAtWorldMinute=worldMinute;offered.offeredAtWorldMinute=offered.offeredAtWorldMinute??worldMinute;const urgency=(a.goal+' '+a.lifeMission.motivation+' '+a.lifeMission.description+' '+a.personality).toLocaleLowerCase('es');const factor=/urgente|inmediato|peligro|amenaza|huir|escasez/.test(urgency)?0.45:/paciente|a largo plazo|reconstruir|aprender/.test(urgency)?1.8:1;const socialFactor=Math.max(0.7,Math.min(1.4,1+(a.social.traits.reactivity-50)/180));const hours=Math.max(2,Math.round((24+offered.requirements.length*8)*factor*socialFactor));offered.deadlineWorldMinute=worldMinute+hours*60;offered.deadlineTick=Number.MAX_SAFE_INTEGER;addLog(s,'Aceptaste el encargo de '+a.name+': '+offered.title+'. Plazo: '+Math.floor((offered.deadlineWorldMinute-worldMinute)/1440)+' días de tiempo del mundo. Objetivo actual: '+offered.objective+'.','event');tickWorld(s);return;}
   addLog(s,a.name+' no te ha ofrecido ningún encargo que puedas aceptar.','warning');return;
  }
  if(/\b(rechazo|no acepto|no me interesa|dejalo)\b/.test(clean)&&offered){offered.status='declined';addLog(s,'Rechazaste el encargo de '+a.name+'. Su objetivo personal continúa.','event');tickWorld(s);return;}

@@ -1,5 +1,5 @@
 import {distance,indexOf,type WorldState} from '../core/types.ts';
-import {canSee,tileAt} from '../core/engine.ts';
+import {canSee,canIdentifyActor,tileAt} from '../core/engine.ts';
 const COLORS:Record<string,string>={floor:'#333b3d',road:'#242b2e',wall:'#596165',building:'#4a5152',door:'#a86e4b',scrap:'#66705e',grass:'#3d5948',water:'#293f49'};
 export interface MapView{tileW:number;tileH:number;originX:number;originY:number;scale:number;}
 export function drawMap(canvas:HTMLCanvasElement,s:WorldState):MapView{
@@ -18,16 +18,14 @@ export function drawMap(canvas:HTMLCanvasElement,s:WorldState):MapView{
   ctx.fillStyle=visible?COLORS[t.terrain]:'#15191b';ctx.fill();ctx.strokeStyle=visible?'#1b2224':'#111416';ctx.lineWidth=.65;ctx.stroke();
   if(!visible)continue;
   if(t.terrain==='building'||t.terrain==='wall'){
-   ctx.fillStyle=t.terrain==='wall'?'#737c7d':'#5a6263';ctx.beginPath();ctx.moveTo(p.x-tileW*.42,p.y+tileH*.43);ctx.lineTo(p.x-tileW*.42,p.y-tileH*.15);ctx.lineTo(p.x,p.y-tileH*.55);ctx.lineTo(p.x+tileW*.42,p.y-tileH*.15);ctx.lineTo(p.x+tileW*.42,p.y+tileH*.43);ctx.closePath();ctx.fill();
-   ctx.strokeStyle='#81898a';ctx.beginPath();ctx.moveTo(p.x,p.y-tileH*.55);ctx.lineTo(p.x,p.y+tileH*.05);ctx.stroke();
+   const top=p.y-tileH*.8,base=p.y+tileH*.42;const left=p.x-tileW*.42,right=p.x+tileW*.42;const roof=p.x;const depth=tileH*.34;ctx.fillStyle=t.terrain==='wall'?'#42494b':'#353c3e';ctx.beginPath();ctx.moveTo(left,base);ctx.lineTo(left,top+tileH*.35);ctx.lineTo(roof,top);ctx.lineTo(roof,top+depth);ctx.lineTo(roof,base+depth);ctx.closePath();ctx.fill();ctx.fillStyle=t.terrain==='wall'?'#626b6d':'#50585a';ctx.beginPath();ctx.moveTo(roof,top);ctx.lineTo(right,top+tileH*.35);ctx.lineTo(right,base);ctx.lineTo(roof,base+depth);ctx.closePath();ctx.fill();ctx.fillStyle='#747d7e';ctx.beginPath();ctx.moveTo(left,top+tileH*.35);ctx.lineTo(roof,top);ctx.lineTo(right,top+tileH*.35);ctx.lineTo(roof,top+tileH*.35+depth*.35);ctx.closePath();ctx.fill();ctx.strokeStyle='#81898a';ctx.lineWidth=.6;ctx.stroke();
   } else if(t.terrain==='scrap'){ctx.fillStyle='#9ba28c';ctx.fillRect(p.x-2,p.y+tileH*.3,4,2);ctx.fillRect(p.x+2,p.y+tileH*.2,3,2);}
   else if(t.terrain==='grass'){ctx.strokeStyle='#83a58a';ctx.beginPath();ctx.moveTo(p.x,p.y+tileH*.6);ctx.lineTo(p.x-2,p.y);ctx.moveTo(p.x,p.y+tileH*.6);ctx.lineTo(p.x+3,p.y+.5);ctx.stroke();}
  }
  for(const a of s.actors.filter(a=>canSee(s,a)).sort((a,b)=>(a.x+a.y)-(b.x+b.y))){
-  const p=center(a.x,a.y);ctx.beginPath();ctx.ellipse(p.x,p.y+tileH*.46,tileW*.19,tileH*.2,0,0,Math.PI*2);ctx.fillStyle='#0c0f10';ctx.fill();
-  ctx.beginPath();ctx.arc(p.x,p.y+tileH*.16,tileW*.19,0,Math.PI*2);ctx.fillStyle=a.color;ctx.fill();ctx.strokeStyle=s.selectedActorId===a.id?'#f0c878':'#111';ctx.lineWidth=s.selectedActorId===a.id?2:1;ctx.stroke();
-  ctx.fillStyle='#101314';ctx.font='bold '+Math.max(8,tileW*.32)+'px monospace';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(a.glyph,p.x,p.y+tileH*.16+.5);
-  if(a.alert>15){ctx.fillStyle='#e36b5e';ctx.fillRect(p.x-2,p.y-tileH*.25,4,2);}
+  const p=center(a.x,a.y),identified=canIdentifyActor(s,a),fade=identified?1:.48;ctx.beginPath();ctx.ellipse(p.x,p.y+tileH*.48,tileW*.22,tileH*.16,0,0,Math.PI*2);ctx.fillStyle='#0c0f10';ctx.fill();
+  ctx.globalAlpha=fade;ctx.fillStyle=identified?a.color:'#879092';ctx.beginPath();ctx.moveTo(p.x-tileW*.12,p.y+tileH*.4);ctx.lineTo(p.x-tileW*.1,p.y+tileH*.06);ctx.lineTo(p.x+tileW*.1,p.y+tileH*.06);ctx.lineTo(p.x+tileW*.14,p.y+tileH*.4);ctx.closePath();ctx.fill();ctx.beginPath();ctx.arc(p.x,p.y-tileH*.02,tileW*.12,0,Math.PI*2);ctx.fill();ctx.strokeStyle=s.selectedActorId===a.id?'#f0c878':'#111';ctx.lineWidth=s.selectedActorId===a.id?2:1;ctx.stroke();
+  if(identified){ctx.fillStyle='#101314';ctx.font='bold '+Math.max(8,tileW*.32)+'px monospace';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText(a.glyph,p.x,p.y-tileH*.02);if(a.alert>15){ctx.fillStyle='#e36b5e';ctx.fillRect(p.x-2,p.y-tileH*.3,4,2);}}ctx.globalAlpha=1;
  }
  const pp=center(s.player.x,s.player.y);ctx.beginPath();ctx.ellipse(pp.x,pp.y+tileH*.48,tileW*.23,tileH*.23,0,0,Math.PI*2);ctx.fillStyle='#d8d9d0';ctx.fill();
  ctx.strokeStyle='#111';ctx.lineWidth=1.5;ctx.stroke();ctx.fillStyle='#111';ctx.font='bold '+Math.max(10,tileW*.45)+'px monospace';ctx.textAlign='center';ctx.textBaseline='middle';ctx.fillText('@',pp.x,pp.y+tileH*.16);

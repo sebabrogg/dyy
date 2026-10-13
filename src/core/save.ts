@@ -1,8 +1,9 @@
 import type {WorldState} from './types.ts';
 import {hydrateItem} from './items.ts';
 import {ensureWorldCommunities,initializeWorldStories} from './world-stories.ts';
+import {ensureQuestObjectives} from './quest-objectives.ts';
 
-export const SAVE_VERSION=6;
+export const SAVE_VERSION=7;
 export const SAVE_STORAGE_KEY='dysto.save.v1';
 export interface SaveEnvelope {version:number;savedAt:string;state:WorldState;}
 
@@ -14,7 +15,7 @@ export function decodeSave(serialized:string):WorldState {
  const parsed:unknown=JSON.parse(serialized);
  if(!parsed||typeof parsed!=='object')throw new Error('El archivo de guardado no es válido.');
  const envelope=parsed as Partial<SaveEnvelope>;
- if(envelope.version!==1&&envelope.version!==2&&envelope.version!==3&&envelope.version!==4&&envelope.version!==5&&envelope.version!==SAVE_VERSION)throw new Error('Versión de guardado incompatible.');
+ if(envelope.version!==1&&envelope.version!==2&&envelope.version!==3&&envelope.version!==4&&envelope.version!==5&&envelope.version!==6&&envelope.version!==SAVE_VERSION)throw new Error('Versión de guardado incompatible.');
  if(!envelope.state||typeof envelope.state!=='object')throw new Error('El guardado no contiene una partida.');
  const state=envelope.state as WorldState;
  if(!Number.isInteger(state.seed)||!Number.isInteger(state.width)||!Number.isInteger(state.height)||!Array.isArray(state.tiles)||!Array.isArray(state.actors)||!Array.isArray(state.quests)||!Array.isArray(state.log)||!state.player||!Array.isArray(state.player.inventory))throw new Error('La estructura de la partida está incompleta.');
@@ -26,6 +27,7 @@ export function decodeSave(serialized:string):WorldState {
   if(!('requiredItemId' in (quest as unknown as Record<string,unknown>)))quest.requiredItemId=quest.objectiveType==='deliver_item'?'scrap':null;
   if(!Number.isFinite(quest.progress))quest.progress=0;
   if(typeof quest.evidence!=='string')quest.evidence=null;
+  ensureQuestObjectives(quest);
   if(!Number.isFinite(quest.deadlineTick)){
    const base=quest.status==='accepted'&&Number.isFinite(quest.acceptedAtTick)?Math.max(state.tick,quest.acceptedAtTick!):quest.offeredAtTick;
    quest.deadlineTick=base+120+(Array.isArray(quest.requirements)?quest.requirements.length:0)*24;

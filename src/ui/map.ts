@@ -1,5 +1,6 @@
 import {distance,indexOf,type WorldState} from '../core/types.ts';
 import {canSee,canIdentifyActor,tileAt} from '../core/engine.ts';
+import {playerLightRadius} from '../core/items.ts';
 const COLORS:Record<string,string>={floor:'#333b3d',road:'#242b2e',wall:'#596165',building:'#4a5152',door:'#a86e4b',scrap:'#66705e',grass:'#3d5948',water:'#293f49'};
 export interface MapView{tileW:number;tileH:number;originX:number;originY:number;scale:number;}
 export function drawMap(canvas:HTMLCanvasElement,s:WorldState):MapView{
@@ -14,7 +15,7 @@ export function drawMap(canvas:HTMLCanvasElement,s:WorldState):MapView{
  for(let sum=0;sum<s.width+s.height;sum++)for(let y=Math.max(0,sum-s.width+1);y<=Math.min(s.height-1,sum);y++){
   const x=sum-y,t=s.tiles[indexOf(x,y,s.width)]!,p=center(x,y);
   ctx.beginPath();ctx.moveTo(p.x,p.y);ctx.lineTo(p.x+tileW/2,p.y+tileH/2);ctx.lineTo(p.x,p.y+tileH);ctx.lineTo(p.x-tileW/2,p.y+tileH/2);ctx.closePath();
-  const visible=distance(s.player,t)<=7||t.explored;
+  const visible=distance(s.player,t)<=playerLightRadius(s.player.inventory)||t.explored;
   ctx.fillStyle=visible?COLORS[t.terrain]:'#15191b';ctx.fill();ctx.strokeStyle=visible?'#1b2224':'#111416';ctx.lineWidth=.65;ctx.stroke();
   if(!visible)continue;
   if(t.terrain==='building'||t.terrain==='wall'){
@@ -27,6 +28,7 @@ export function drawMap(canvas:HTMLCanvasElement,s:WorldState):MapView{
   const tile=tileAt(s,q.targetX!,q.targetY!);if(!tile||!(tile.terrain==='scrap'||tile.terrain==='building'||tile.terrain==='door'||tile.terrain==='road'))continue;
   const p=center(tile.x,tile.y);ctx.save();ctx.globalAlpha=.92;ctx.strokeStyle='#e5bd70';ctx.fillStyle='#e5bd70';ctx.lineWidth=2;ctx.beginPath();ctx.arc(p.x,p.y+tileH*.38,Math.max(5,tileW*.19),0,Math.PI*2);ctx.stroke();ctx.beginPath();ctx.moveTo(p.x-4,p.y+tileH*.38);ctx.lineTo(p.x+4,p.y+tileH*.38);ctx.moveTo(p.x,p.y+tileH*.38-4);ctx.lineTo(p.x,p.y+tileH*.38+4);ctx.stroke();ctx.font='bold 9px monospace';ctx.textAlign='center';ctx.fillText('OBJ',p.x,p.y-tileH*.2);ctx.restore();
  }
+ for(const ground of s.groundItems??[]){const tile=tileAt(s,ground.x,ground.y);if(!tile||!(distance(s.player,ground)<=7||tile.explored))continue;const p=center(ground.x,ground.y);ctx.save();ctx.fillStyle='#d8b56d';ctx.strokeStyle='#141819';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(p.x,p.y+tileH*.15);ctx.lineTo(p.x+tileW*.12,p.y+tileH*.38);ctx.lineTo(p.x,p.y+tileH*.61);ctx.lineTo(p.x-tileW*.12,p.y+tileH*.38);ctx.closePath();ctx.fill();ctx.stroke();if(distance(s.player,ground)<=3){ctx.fillStyle='#f0d9a3';ctx.font='bold 8px monospace';ctx.textAlign='center';ctx.fillText('OBJ',p.x,p.y+tileH*.04);}ctx.restore();}
  for(const a of s.actors.filter(a=>canSee(s,a)).sort((a,b)=>(a.x+a.y)-(b.x+b.y))){
   const p=center(a.x,a.y),identified=canIdentifyActor(s,a),fade=identified?1:.48;ctx.beginPath();ctx.ellipse(p.x,p.y+tileH*.48,tileW*.22,tileH*.16,0,0,Math.PI*2);ctx.fillStyle='#0c0f10';ctx.fill();
   ctx.globalAlpha=fade;ctx.fillStyle=identified?a.color:'#879092';ctx.beginPath();ctx.moveTo(p.x-tileW*.12,p.y+tileH*.4);ctx.lineTo(p.x-tileW*.1,p.y+tileH*.06);ctx.lineTo(p.x+tileW*.1,p.y+tileH*.06);ctx.lineTo(p.x+tileW*.14,p.y+tileH*.4);ctx.closePath();ctx.fill();ctx.beginPath();ctx.arc(p.x,p.y-tileH*.02,tileW*.12,0,Math.PI*2);ctx.fill();ctx.strokeStyle=s.selectedActorId===a.id?'#f0c878':'#111';ctx.lineWidth=s.selectedActorId===a.id?2:1;ctx.stroke();

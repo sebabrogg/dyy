@@ -1,14 +1,16 @@
 import type {Actor,Item,WorldState} from './types.ts';
+import {hydrateItem,itemMass} from './items.ts';
 
 export interface TradeDecision{accepted:boolean;reason:string;giveValue:number;receiveValue:number;}
 function words(value:string){return value.toLocaleLowerCase('es').normalize('NFD').replace(/[\u0300-\u036f]/g,'');}
 function itemValue(item:Item,actor:Actor,quantity:number){
- const text=words([item.name,item.description,item.id].join(' '));
+ hydrateItem(item);const text=words([item.name,item.description,item.id].join(' '));
  const needs=words([actor.goal,actor.lifeMission?.title,actor.lifeMission?.description,actor.lifeMission?.needs?.join(' '),actor.mind?.needs?.join(' '),actor.mind?.values?.join(' '),actor.mind?.currentMood].filter(Boolean).join(' '));
  let value=1;
  if(/agua|comida|racion|medicina|bateria|municion|arma|cuchillo|punzon|sierra/.test(text))value=3;
  if(/chatarra|pieza|repuesto|metal|cable|generador|herramienta/.test(text))value=2;
  if(text.split(/\s+/).some(word=>word.length>3&&needs.includes(word)))value+=3;
+ const integrity=Math.max(.2,Math.min(1,(item.integrity??item.condition??85)/100));const cleanliness=1-Math.min(.35,(item.dirt??0)/250);const dryness=1-Math.min(.25,(item.moisture??0)/300);const charge=item.charge===undefined?1:.45+.55*Math.max(0,item.charge)/(item.maxCharge??100);const quality=.7+.3*(item.quality??60)/100;const deviceCompleteness=item.kind==='device'&&(item.compatibility??[]).includes('industrial-battery')&&!item.installedBatteryId?.length? .8:1;value*=integrity*cleanliness*dryness*charge*quality*deviceCompleteness;
  const already=actor.inventory?.find(i=>i.id===item.id)?.quantity??0;
  if(already>0)value=Math.max(1,value-1);
  return value*Math.max(1,quantity);
@@ -24,6 +26,7 @@ export function evaluateTradeOffer(actor:Actor,give:Item,receive:Item,giveQuanti
  return {accepted:false,reason:'No me convence el trato: lo que ofrecés no compensa lo que me pedís.',giveValue,receiveValue};
 }
 export function executeTrade(state:WorldState,actorId:string,giveId:string,receiveId:string,giveQuantity=1,receiveQuantity=1,creditsOffered=0):TradeDecision{
+ const playerBatteryInstalled=state.player.inventory.some(device=>device.installedBatteryId===giveId);const actorInventoryForTrade=state.actors.find(a=>a.id===actorId)?.inventory??[];const actorBatteryInstalled=actorInventoryForTrade.some(device=>device.installedBatteryId===receiveId);if(playerBatteryInstalled||actorBatteryInstalled)return {accepted:false,reason:'Una de las baterías está instalada en un dispositivo y no se puede intercambiar hasta retirarla.',giveValue:0,receiveValue:0};
  if(!Number.isInteger(creditsOffered)||creditsOffered<0||creditsOffered>(state.player.credits??0))return {accepted:false,reason:'No tenés esos créditos disponibles.',giveValue:0,receiveValue:0};
  if(!Number.isInteger(giveQuantity)||!Number.isInteger(receiveQuantity)||giveQuantity<1||receiveQuantity<1)return {accepted:false,reason:'Las cantidades tienen que ser números enteros positivos.',giveValue:0,receiveValue:0};
  if(giveId===receiveId)return {accepted:false,reason:'No tiene sentido intercambiar un objeto por el mismo objeto.',giveValue:0,receiveValue:0};
@@ -32,6 +35,8 @@ export function executeTrade(state:WorldState,actorId:string,giveId:string,recei
  const give=state.player.inventory.find(i=>i.id===giveId&&i.quantity>=giveQuantity&&giveQuantity>0);
  const receive=actor.inventory?.find(i=>i.id===receiveId&&i.quantity>=receiveQuantity&&receiveQuantity>0);
  if(!give||!receive)return {accepted:false,reason:'El inventario cambió. Revisá los objetos antes de confirmar.',giveValue:0,receiveValue:0};
+ if(give.installedBatteryId||give.installedFilterId||receive.installedBatteryId||receive.installedFilterId)return {accepted:false,reason:'Retirá los componentes instalados antes de intercambiar el dispositivo.',giveValue:0,receiveValue:0};
+ hydrateItem(give);hydrateItem(receive);const carried=state.player.inventory.reduce((n,i)=>n+itemMass(hydrateItem(i)),0);const finalMass=carried-itemMass({...give,quantity:giveQuantity})+itemMass({...receive,quantity:receiveQuantity});if(finalMass>(state.player.carryCapacity??30))return {accepted:false,reason:'El objeto recibido supera tu capacidad de carga. El trueque no se realiza.',giveValue:0,receiveValue:0};
  const decision=evaluateTradeOffer(actor,give,receive,giveQuantity,receiveQuantity);
  decision.giveValue+=Math.floor(creditsOffered/12);
  if(!decision.accepted&&decision.giveValue>=decision.receiveValue)return {...decision,accepted:true,reason:'Los objetos y el crédito adicional hacen que el trato me sirva.'};
@@ -52,7 +57,7 @@ export type MarketMode='buy'|'sell';
 export function marketPrice(item:Item,actor:Actor,mode:MarketMode):number{
  const text=words([item.name,item.description,item.id].join(' '));
  let base=/medicina|medkit|bateria|arma|municion|filtro/.test(text)?48:/herramienta|repuesto|cable|pieza|generador/.test(text)?24:/agua|comida|racion/.test(text)?12:/metal|chatarra|tela/.test(text)?8:16;
- const condition=Math.max(.25,Math.min(1.2,(item.condition??85)/100));
+ hydrateItem(item);const condition=Math.max(.2,Math.min(1.2,(item.integrity??item.condition??85)/100));const cleanliness=1-Math.min(.35,(item.dirt??0)/250);const dryness=1-Math.min(.25,(item.moisture??0)/300);const charge=item.charge===undefined?1:.45+.55*Math.max(0,item.charge)/(item.maxCharge??100);const quality=.7+.3*(item.quality??60)/100;const deviceCompleteness=item.kind==='device'&&(item.compatibility??[]).includes('industrial-battery')&&!item.installedBatteryId?.length? .8:1;
  const needText=words([actor.goal,actor.lifeMission?.title,actor.lifeMission?.description,actor.lifeMission?.needs?.join(' '),actor.mind?.needs?.join(' ')].filter(Boolean).join(' '));
  const needMatch=text.split(/\s+/).some(w=>w.length>3&&needText.includes(w));
  const stock=(actor.inventory??[]).find(i=>i.id===item.id)?.quantity??0;
@@ -60,17 +65,20 @@ export function marketPrice(item:Item,actor:Actor,mode:MarketMode):number{
  const relationship=actor.social?.relationships?.player;
  const rapport=1-Math.max(-.15,Math.min(.15,((relationship?.trust??actor.trust)-50)/400));
  const needFactor=needMatch?(mode==='buy'?1.2:.9):1;
- const ask=base*condition*scarcity*rapport*needFactor;
+ const ask=base*condition*cleanliness*dryness*charge*quality*deviceCompleteness*scarcity*rapport*needFactor;
  return Math.max(1,Math.round(mode==='buy'?ask:ask*.62));
 }
 export interface MarketResult{accepted:boolean;reason:string;total:number;}
 export function executeMarketTrade(state:WorldState,actorId:string,mode:MarketMode,itemId:string,quantity:number):MarketResult{
+ const ownerInventory=mode==='buy'?state.actors.find(a=>a.id===actorId)?.inventory??[]:state.player.inventory;if(ownerInventory.some(device=>device.installedBatteryId===itemId))return {accepted:false,reason:'Esa batería está instalada en un dispositivo. Retirala antes de comerciar.',total:0};
  if(!Number.isInteger(quantity)||quantity<1)return {accepted:false,reason:'La cantidad debe ser un entero positivo.',total:0};
  const actor=state.actors.find(a=>a.id===actorId);
  if(!actor||!actor.alive||Math.max(Math.abs(actor.x-state.player.x),Math.abs(actor.y-state.player.y))>2)return {accepted:false,reason:'La otra persona ya no está en condiciones de negociar contigo.',total:0};
  const source=mode==='buy'?(actor.inventory??[]):state.player.inventory;
  const item=source.find(i=>i.id===itemId&&i.quantity>=quantity);
  if(!item)return {accepted:false,reason:'Las existencias cambiaron. La operación no se realizó.',total:0};
+ if(item.installedBatteryId||item.installedFilterId)return {accepted:false,reason:'Retirá los componentes instalados antes de comerciar este dispositivo.',total:0};
+ if(mode==='buy'){hydrateItem(item);const carried=state.player.inventory.reduce((n,i)=>n+itemMass(hydrateItem(i)),0);const incoming=itemMass({...item,quantity});if(carried+incoming>(state.player.carryCapacity??30))return {accepted:false,reason:'No tenés capacidad de carga para llevar esa cantidad.',total:0};}
  if(mode==='buy'&&actor.inventory?.some(i=>i.id===item.id)&&actor.inventory.find(i=>i.id===item.id)!.quantity===quantity&&/herramienta|medicina|bateria|filtro|repuesto/.test(words(item.name+' '+item.description))&&/repar|mecan|medic|generador|necesit/.test(words(actor.goal+' '+actor.lifeMission?.title+' '+actor.lifeMission?.description)))return {accepted:false,reason:'No voy a vender lo último que necesito para trabajar o sobrevivir.',total:0};
  const total=marketPrice(item,actor,mode)*quantity;
  if(mode==='buy'){

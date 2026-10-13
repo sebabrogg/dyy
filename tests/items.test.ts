@@ -29,7 +29,7 @@ test('limpiar transfiere suciedad al paño reutilizable y consume tiempo, no el 
 
 test('reparar consume piezas, desgasta la herramienta y mejora solo la integridad del objetivo',()=>{
  const world=generateWorld(9103);const radio={id:'radio',name:'Radio portátil',quantity:1,description:'Radio',condition:35};const screwdriver={id:'industrial-screwdriver',name:'Destornillador industrial',quantity:1,description:'Herramienta',condition:90};const parts={id:'mechanical-parts',name:'Kit de piezas mecánicas',quantity:1,description:'Repuestos'};world.player.inventory.push(radio,screwdriver,parts);hydrateItem(radio);hydrateItem(screwdriver);const before=radio.integrity??0;const toolWear=screwdriver.wear??0;
- assert.equal(performInventoryAction(world,radio.id,'repair'),true);assert.ok((radio.integrity??0)>before);assert.equal(parts.quantity,0);assert.ok((screwdriver.wear??0)>toolWear);assert.equal(world.elapsedWorldMs,20*60000);
+ assert.equal(performInventoryAction(world,radio.id,'repair'),true);assert.ok((world.player.progression?.skills.mechanics?.totalXp??0)>0,'la reparación validada debe enseñar Mecánica');assert.ok((radio.integrity??0)>before);assert.equal(parts.quantity,0);assert.ok((screwdriver.wear??0)>toolWear);assert.equal(world.elapsedWorldMs,20*60000);
 });
 
 test('radio y linterna consumen energía de una batería instalada en vez de guardar una carga ficticia propia',()=>{

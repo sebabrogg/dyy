@@ -1,6 +1,6 @@
 import './style.css';
 import {initConversationFolders} from './ui/conversation-folders.ts';
-import {advanceWorld,formatClock,giveItemFromChat,giveInventoryItemToSelectedActor,showInventoryItemFromChat,initializeWorld,inspect,interactWorld,pathTo,performInventoryAction,selectActor,say,sleep,talk,tileAt,useItem,visibleActors,walkStep,waitTurn} from './core/engine.ts';
+import {advanceWorld,combatAction,formatClock,giveItemFromChat,giveInventoryItemToSelectedActor,showInventoryItemFromChat,initializeWorld,inspect,interactWorld,pathTo,performInventoryAction,selectActor,say,sleep,talk,tileAt,useItem,visibleActors,walkStep,waitTurn} from './core/engine.ts';
 import {canonicalItemId,hydrateItem,itemActions,ITEM_ACTION_LABELS,itemMass} from './core/items.ts';
 import {generateWorld} from './world/generate.ts';
 import {applyPlayableCharacter,PLAYABLE_CHARACTERS} from './core/playable-characters.ts';
@@ -106,6 +106,7 @@ canvas.addEventListener('click',e=>{if(state.paused)return;
 window.addEventListener('keydown',e=>{
  if(['INPUT','TEXTAREA'].includes((e.target as HTMLElement).tagName))return;
  if(state.paused)return;const k=e.key.toLowerCase();
+ if(k==='f'&&state.selectedActorId){const result=combatAction(state,state.selectedActorId);if(!result.ok)state.log.push({tick:state.tick,text:result.message,kind:'warning'});render();}
  if(k==='e'){if(state.selectedActorId)$<HTMLInputElement>('say-input').focus();else inspect(state);render();}
  if(k===' '){e.preventDefault();waitTurn(state);render();}
 });

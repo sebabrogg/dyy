@@ -7,7 +7,10 @@ const normalize=(value:string)=>value.toLocaleLowerCase('es').normalize('NFD').r
 export function registerQuestFromDialogue(state:WorldState,giverId:string,npcLine:string):NpcQuest|null {
  const actor=state.actors.find(item=>item.id===giverId);if(!actor||!actor.alive)return null;
  const text=normalize(npcLine);
- if(!text||/(?:no tengo|no hay|ningun|nada de) (?:ningun )?(?:encargo|tarea|trabajo|favor|recado)/.test(text))return null;
+ // Internal NPC monologues, scene summaries, and model reasoning are not spoken requests.
+ // Never turn first-person knowledge/suspicion notes into player-facing quests.
+ const internalNarration=/(?:^|[.!?] )soy [^,.!?]{1,90}, (?:la que|el que|quien)|\bse que (?:este|esta|el|la|acaba de|no)|\btodo lo que tengo de (?:el|ella)|\bno se que (?:busca|busco|quiere|quiere)|\bsospecho que|\bes solo una impresion|\bsin mostrarle|\blo que quiero es sacarle|\bpor ahora me alcanza con|\blo que se es todo lo que tengo|\bno se de el|\bno se de ella/.test(text);
+ if(!text||internalNarration||/(?:no tengo|no hay|ningun|nada de) (?:ningun )?(?:encargo|tarea|trabajo|favor|recado)/.test(text))return null;
  // Require both a request directed at the player and a concrete topic/action. Need or desire alone is not a quest.
  const asksPlayer=/(?:avisame|avisa|informame|volv[eé] y|volves y|volves|volvé|fijate|investiga|busca|averigua|averigua|consegui|consegu[ií]|traeme|tra[eé]me|lleva|entregame|decime|contame|me traes|me traigas|si escuchas|si escuchas algo|si sabes algo|necesito que|quiero que|podrias|podes|me serviria que|lo que me sirve es que|el favor es que|reparame|arreglame|repara|arregla|despeja|recupera)/.test(text);
  if(!asksPlayer)return null;

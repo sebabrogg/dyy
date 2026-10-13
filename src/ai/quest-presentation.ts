@@ -29,7 +29,11 @@ function validatePresentation(value:unknown,fallback:QuestPresentation):QuestPre
 }
 
 export async function generateQuestPresentation(quest:NpcQuest,actor:Actor,options:{endpoint?:string;model?:string;fetcher?:typeof fetch;timeoutMs?:number}={}):Promise<QuestPresentation> {
- const fallback=fallbackQuestPresentation(quest.requestText??quest.description,actor.name,quest.objective);
+ const request=quest.requestText??quest.description;
+ const fallback=fallbackQuestPresentation(request,actor.name,quest.objective);
+ // Old or malformed saves may contain a narrator's internal monologue as the request.
+ // Do not ask the model to turn that leaked context into a quest title/summary.
+ if(/\bsoy [^.!?]{1,100}, (?:la que|el que|quien)|\btodo lo que tengo de (?:el|ella)|\bsospecho que|\bes solo una impresion|\bsin mostrarle|\blo que quiero es sacarle|\bpor ahora me alcanza con/i.test(request))return {title:'Petición por aclarar',summary:`${actor.name} todavía no formuló una petición concreta. Hablá con el personaje para aclarar qué necesita antes de tratar esto como un encargo.`};
  const provider=resolveAiProvider(typeof window!=='undefined'?window.location.search:'');
  const endpoint=options.endpoint??(provider==='opencode'?OPENCODE_AI_ENDPOINT:LOCAL_AI_ENDPOINT);
  const fetcher=options.fetcher??fetch;

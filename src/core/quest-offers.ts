@@ -1,5 +1,4 @@
 import type {NpcQuest,WorldState} from './types.ts';
-import {matchGrutaQuestSeed} from './quest-catalog.ts';
 
 const normalize=(value:string)=>value.toLocaleLowerCase('es').normalize('NFD').replace(/[\u0300-\u036f]/g,'').replace(/\s+/g,' ').trim();
 
@@ -26,9 +25,9 @@ export function registerQuestFromDialogue(state:WorldState,giverId:string,npcLin
  if(!explicitQuest&&!/(?:avisame|fijate|investiga|busca|averigua|decime|contame|si escuchas|si sabes algo|necesito que|quiero que|me serviria que|lo que me sirve es que)/.test(text))return null;
  const worldMinute=Math.floor((state.elapsedWorldMs??0)/60000);
  const titleTopic=topic.charAt(0).toLocaleUpperCase('es')+topic.slice(1).replace(/[.!?]+$/,'');
- const seed=matchGrutaQuestSeed(topic+' '+npcLine,state.seed+state.tick+giverId.length);
- const title=seed?.title??(/\bagua\b/.test(topicKey)?'¿Alguien sabe sobre el agua?':/gruta/.test(topicKey)?'El loco de Gruta':titleTopic.length>38?titleTopic.slice(0,35).trim()+'…':titleTopic+'?');
+ const fallbackTitle='Averiguar qué se sabe sobre '+titleTopic;const title=fallbackTitle.length>54?fallbackTitle.slice(0,51).trim()+'…':fallbackTitle;
  const objective='Averigua qué se sabe sobre '+topic+' y vuelve a informarle a '+actor.name+'.';
- const quest:NpcQuest={id:'quest-dialogue-'+giverId+'-'+state.tick+'-'+topicKey.replace(/[^a-z0-9]+/g,'-').slice(0,24),giverId,missionId:'dialogue-'+giverId+'-'+topicKey.replace(/[^a-z0-9]+/g,'-').slice(0,32),title,description:npcLine.trim().slice(0,320),objective,requirements:[],reward:'Por acordar con '+actor.name+'.',status:'offered',offeredAtTick:state.tick,acceptedAtTick:null,deadlineTick:state.tick+240,offeredAtWorldMinute:worldMinute,acceptedAtWorldMinute:null,deadlineWorldMinute:worldMinute+2880,objectiveType:'investigate_and_report',progress:0,evidence:null,requiredItemId:null};
+ const stableKey=topicKey.replace(/[^a-z0-9]+/g,'-').slice(0,24);let sequence=state.quests.length+1;let id='quest-'+state.seed.toString(36)+'-'+giverId.replace(/[^a-z0-9-]/gi,'').slice(0,18)+'-'+sequence.toString(36);while(state.quests.some(q=>q.id===id))id='quest-'+state.seed.toString(36)+'-'+giverId.replace(/[^a-z0-9-]/gi,'').slice(0,18)+'-'+(++sequence).toString(36);
+ const quest:NpcQuest={id,giverId,missionId:'dialogue-'+giverId+'-'+stableKey,requestText:npcLine.trim().slice(0,500),title,description:npcLine.trim().slice(0,320),objective,requirements:[],reward:'Por acordar con '+actor.name+'.',status:'offered',offeredAtTick:state.tick,acceptedAtTick:null,deadlineTick:state.tick+240,offeredAtWorldMinute:worldMinute,acceptedAtWorldMinute:null,deadlineWorldMinute:worldMinute+2880,objectiveType:'investigate_and_report',progress:0,evidence:null,requiredItemId:null};
  state.quests.push(quest);return quest;
 }

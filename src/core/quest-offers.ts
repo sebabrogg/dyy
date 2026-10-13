@@ -7,6 +7,10 @@ const normalize=(value:string)=>value.toLocaleLowerCase('es').normalize('NFD').r
 export function registerQuestFromDialogue(state:WorldState,giverId:string,npcLine:string):NpcQuest|null {
  const actor=state.actors.find(item=>item.id===giverId);if(!actor||!actor.alive)return null;
  const text=normalize(npcLine);
+ // Clarification and repair moves keep a conversation going; they are not requests for world actions.
+ // Without this guard, broad verbs like 'decime' turn 'decímelo de otra forma' into an investigation of 'otra forma'.
+ const clarificationOnly=/(?:\bno te segui bien\b|\bno te entendi\b|\bno entendi\b|\bdecimelo de otra forma\b|\bdecimelo de otra manera\b|\bexplicamelo de otra forma\b|\bexplicamelo de otra manera\b|\brepetimelo\b|\brepeti eso\b|\bcomo dijiste\b|\bque quisiste decir\b|\bno me quedo claro\b)/.test(text);
+ if(clarificationOnly)return null;
  // Internal NPC monologues, scene summaries, and model reasoning are not spoken requests.
  // Never turn first-person knowledge/suspicion notes into player-facing quests.
  const internalNarration=/(?:^|[.!?] )soy [^,.!?]{1,90}, (?:la que|el que|quien)|\bse que (?:este|esta|el|la|acaba de|no)|\btodo lo que tengo de (?:el|ella)|\bno se que (?:busca|busco|quiere|quiere)|\bsospecho que|\bes solo una impresion|\bsin mostrarle|\blo que quiero es sacarle|\bpor ahora me alcanza con|\blo que se es todo lo que tengo|\bno se de el|\bno se de ella/.test(text);

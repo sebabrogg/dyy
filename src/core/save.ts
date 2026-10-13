@@ -1,5 +1,6 @@
 import type {WorldState} from './types.ts';
 import {hydrateItem} from './items.ts';
+import {ensureWorldCommunities,initializeWorldStories} from './world-stories.ts';
 
 export const SAVE_VERSION=6;
 export const SAVE_STORAGE_KEY='dysto.save.v1';
@@ -33,5 +34,6 @@ export function decodeSave(serialized:string):WorldState {
  for(const actor of state.actors){
   if(!actor||typeof actor.id!=='string'||!actor.social||!Array.isArray(actor.social.memories)||!Array.isArray(actor.social.knowledge)||!actor.social.relationships||!actor.mind||!actor.lifeMission)throw new Error('El guardado contiene un personaje incompleto.');
  }
+ ensureWorldCommunities(state);initializeWorldStories(state);
  return state;
 }

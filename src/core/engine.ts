@@ -7,6 +7,7 @@ import {classifyWorkIntent} from './quest-intent.ts';
 import {chooseAutonomousDirection} from './autonomy.ts';
 import {applyWear,canonicalItemId,hydrateItem,itemMass,playerLightRadius} from './items.ts';
 import {awardGeneralXp,awardPractice,autonomousPractice,createProgression,hasSpecialization,skillProgress} from './progression.ts';
+import {advanceWorldStories,revealStoryEvidence} from './world-stories.ts';
 import type {SkillName} from './types.ts';
 const WALKABLE=new Set(['floor','road','scrap','grass','door']);
 const DIRECTIONS=[[1,0],[-1,0],[0,1],[0,-1]] as const;
@@ -61,6 +62,7 @@ function progressNpcWork(s:WorldState):void{
 function tickWorld(s:WorldState):void{
  s.tick++;
  progressNpcWork(s);
+ advanceWorldStories(s);
  const rng=stream(s.seed,'npc.ai.tick.'+s.tick);
  for(const a of s.actors.filter(v=>v.alive)){
   ageSocialMemories(a,s.tick);
@@ -118,7 +120,8 @@ export function inspect(s:WorldState):void{
  }
  const t=s.selectedTile?tileAt(s,s.selectedTile.x,s.selectedTile.y):tileAt(s,s.player.x,s.player.y);
  addLog(s,t?({road:'La calle está gastada por botas y vehículos de carga.',building:'Una estructura industrial bloquea el paso.',door:'Una puerta reforzada. No sabes qué hay detrás.',scrap:'Restos de maquinaria abandonada.',grass:'Vegetación enferma crece entre el hormigón.',wall:'Un muro de contención.',water:'Agua estancada.',floor:'Una superficie de hormigón marcada por el uso.'}[t.terrain]??'No distinguís nada concluyente.'):'No hay nada claro que examinar.','perception');
- if(t){
+ if(t){const target=s.selectedTile??{x:s.player.x,y:s.player.y};const clueStory=(s.stories??[]).find(story=>{const loc=s.locations?.find(l=>l.id===story.locationId);return !!loc&&Math.max(Math.abs(s.player.x-loc.x),Math.abs(s.player.y-loc.y))<=2&&Math.max(Math.abs(target.x-loc.x),Math.abs(target.y-loc.y))<=2&&story.evidence.some(e=>e.discoveredBy===null);});if(clueStory){const clue=clueStory.evidence.find(e=>e.discoveredBy===null)!;if(revealStoryEvidence(s,clueStory.id,clue.id,'player'))addLog(s,'Encontraste una pista en '+(s.locations?.find(l=>l.id===clueStory.locationId)?.name??'la zona')+': '+clue.description+'. La pista todavía no demuestra por sí sola qué ocurrió.','event');}
+
   for(const q of s.quests.filter(q=>q.status==='accepted'&&q.objectiveType==='investigate_and_report'&&q.progress===0)){
    q.progress=1;q.evidence='tile:'+t.x+','+t.y+':'+t.terrain;
    addLog(s,'La observación del terreno queda registrada para el encargo «'+q.title+'».','event');

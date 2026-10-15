@@ -1,3 +1,4 @@
+import {initRetroAudio} from './ui/retro-audio.ts';
 import './style.css';
 import {initConversationFolders} from './ui/conversation-folders.ts';
 import {advanceWorld,combatAction,formatClock,giveItemFromChat,giveInventoryItemToSelectedActor,showInventoryItemFromChat,initializeWorld,inspect,interactWorld,pathTo,performInventoryAction,selectActor,say,sleep,talk,tileAt,useItem,visibleActors,walkStep,waitTurn} from './core/engine.ts';
@@ -147,3 +148,4 @@ window.setInterval(()=>{if(!state.paused)advanceWorld(state);render();},30000);
 document.getElementById("fatigue-dismiss")?.addEventListener("click",()=>{document.getElementById("fatigue-popup")!.hidden=true;});
 window.setInterval(()=>{const now=Date.now();if(state.paused||!state.running){state.lastClockUpdate=now;return;}const last=state.lastClockUpdate??now;if(now-last>=30000){const elapsed=Math.floor((now-last)/30000);state.lastClockUpdate=last+elapsed*30000;for(let i=0;i<Math.min(elapsed,120);i++)advanceWorld(state);render();try{localStorage.setItem(SAVE_STORAGE_KEY,encodeSave(state));}catch{}}},1000);
 render();
+initRetroAudio();

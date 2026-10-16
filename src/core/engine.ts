@@ -354,3 +354,4 @@ export function formatClock(s:WorldState):string{const elapsed=s.elapsedWorldMs?
 
 /** Deterministic, engine-validated combat entry point. */
 export function combatAction(s:WorldState,targetId:string,style:CombatStyle='unarmed',executionQuality=0.5){return resolveCombatAction(s,'player',targetId,style,executionQuality);}
+export function enemyCombatAction(s:WorldState,attackerId:string,executionQuality=0.5){return resolveCombatAction(s,attackerId,'player','unarmed',executionQuality);}

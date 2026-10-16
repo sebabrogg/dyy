@@ -1,4 +1,5 @@
 import {initRetroAudio} from './ui/retro-audio.ts';
+import {initSettings} from './ui/settings.ts';
 import './style.css';
 import {initConversationFolders} from './ui/conversation-folders.ts';
 import {advanceWorld,actorCombatAction,combatAction,enemyCombatAction,formatClock,resolvePhysicalHack,giveItemFromChat,giveInventoryItemToSelectedActor,showInventoryItemFromChat,initializeWorld,inspect,interactWorld,pathTo,performInventoryAction,selectActor,say,sleep,talk,tileAt,useItem,visibleActors,walkStep,waitTurn} from './core/engine.ts';
@@ -379,3 +380,4 @@ dialogueJumpButton?.addEventListener('click',()=>dialogueFeedForScroll?.scrollTo
 if(dialogueFeedForScroll){lastObservedNpcReply=latestNpcCardKey();const dialogueObserver=new MutationObserver(()=>{const nextNpcReply=latestNpcCardKey();if(nextNpcReply&&nextNpcReply!==lastObservedNpcReply){lastObservedNpcReply=nextNpcReply;dialogueFeedForScroll.scrollTop=dialogueFeedForScroll.scrollHeight;}else{dialogueFeedForScroll.scrollTop=Math.min(rememberedDialogueScrollTop,dialogueFeedForScroll.scrollHeight);}updateDialogueJumpButton();});dialogueObserver.observe(dialogueFeedForScroll,{childList:true,subtree:true});}
 render();
 initRetroAudio();
+initSettings();

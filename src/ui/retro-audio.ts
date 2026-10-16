@@ -1,6 +1,6 @@
 type Sound = 'click' | 'confirm' | 'move' | 'speech' | 'warning';
 export function initRetroAudio(): void {
- let enabled = true, ctx: AudioContext | undefined, lastLine = '', lastClick = 0;
+ let enabled = localStorage.getItem('dysto-settings-sound') !== 'off', ctx: AudioContext | undefined, lastLine = '', lastClick = 0;
  const beep = (hz: number, delay: number, duration: number, volume = .03) => {
   if (!enabled) return;
   try {
@@ -21,8 +21,8 @@ export function initRetroAudio(): void {
  };
  const heading=document.querySelector<HTMLElement>('.conversation-heading');
  if(heading&&!document.getElementById('retro-audio-toggle')){
-  const b=document.createElement('button'); b.id='retro-audio-toggle'; b.type='button'; b.className='retro-audio-toggle'; b.textContent='♪ SONIDO ON'; b.setAttribute('aria-pressed','true');
-  b.addEventListener('click',()=>{enabled=!enabled;b.textContent=enabled?'♪ SONIDO ON':'♪ SONIDO OFF';b.setAttribute('aria-pressed',String(enabled));if(enabled)play('confirm');}); heading.append(b);
+  const b=document.createElement('button'); b.id='retro-audio-toggle'; b.type='button'; b.className='retro-audio-toggle'; b.textContent=enabled?'♪ SONIDO ON':'♪ SONIDO OFF'; b.setAttribute('aria-pressed',String(enabled));
+  b.addEventListener('click',()=>{enabled=!enabled;localStorage.setItem('dysto-settings-sound',enabled?'on':'off');b.textContent=enabled?'♪ SONIDO ON':'♪ SONIDO OFF';b.setAttribute('aria-pressed',String(enabled));if(enabled)play('confirm');}); heading.append(b);
  }
  document.addEventListener('click',e=>{
   const t=e.target; if(!(t instanceof Element)||t.closest('#retro-audio-toggle'))return;

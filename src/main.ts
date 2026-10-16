@@ -1,7 +1,7 @@
 import {initRetroAudio} from './ui/retro-audio.ts';
 import './style.css';
 import {initConversationFolders} from './ui/conversation-folders.ts';
-import {advanceWorld,combatAction,enemyCombatAction,formatClock,giveItemFromChat,giveInventoryItemToSelectedActor,showInventoryItemFromChat,initializeWorld,inspect,interactWorld,pathTo,performInventoryAction,selectActor,say,sleep,talk,tileAt,useItem,visibleActors,walkStep,waitTurn} from './core/engine.ts';
+import {advanceWorld,actorCombatAction,combatAction,enemyCombatAction,formatClock,resolvePhysicalHack,giveItemFromChat,giveInventoryItemToSelectedActor,showInventoryItemFromChat,initializeWorld,inspect,interactWorld,pathTo,performInventoryAction,selectActor,say,sleep,talk,tileAt,useItem,visibleActors,walkStep,waitTurn} from './core/engine.ts';
 import {canonicalItemId,hydrateItem,itemActions,ITEM_ACTION_LABELS,itemMass} from './core/items.ts';
 import {generateWorld} from './world/generate.ts';
 import {applyPlayableCharacter,PLAYABLE_CHARACTERS} from './core/playable-characters.ts';
@@ -10,6 +10,7 @@ import {availableSpecializations,chooseSpecialization,SKILLS,xpForLevel} from '.
 import {drawMap,drawOverviewMap,tileFromPointer} from './ui/map.ts';
 import {recordSocialEvent} from './core/social.ts';
 import type {WorldState} from './core/types.ts';
+import type {CombatStyle} from './core/combat.ts';
 import {buildDialogueContext,generateLocalNpcLine} from './ai/local-dialogue.ts';
 import {applyQuestPresentation,generateQuestPresentation} from './ai/quest-presentation.ts';
 import {revealsIdentity} from './core/identity.ts';
@@ -136,23 +137,31 @@ function doCombatTurn(action:string,executionQuality=0.65){
    if(fleeRoll<escapeChance){state.log.push({tick:state.tick,text:'Consigues escapar de '+enemy.name+'.',kind:'action',actorId:enemy.id});closeCombat();return;}
    message='Intentas retirarte, pero '+enemy.name+' te corta el paso. La posibilidad dependía de la resistencia de ambos.';
  }
- if(!enemy.alive){
-   state.log.push({tick:state.tick,text:enemy.name+' murió durante el enfrentamiento. Su muerte queda registrada.',kind:'event',actorId:enemy.id});
-   for(const witness of state.actors.filter(a=>a.alive&&a.id!==enemy.id&&Math.hypot(a.x-enemy.x,a.y-enemy.y)<=4)){
-     witness.alert=Math.min(100,witness.alert+18);
-     const rel=witness.social.relationships['player'];
-     if(rel){rel.hostility=Math.min(100,rel.hostility+12);rel.fear=Math.min(100,rel.fear+8);rel.trust=Math.max(-100,rel.trust-10);}
-   }
- }
  if(enemy.alive&&state.player.health>0){
    const ally=state.actors.find(a=>a.alive&&a.id!==enemy.id&&a.disposition==='helpful'&&(a.social.relationships['player']?.trust??0)>=20&&Math.hypot(a.x-state.player.x,a.y-state.player.y)<=3);
    if(ally){
-     message+=' '+ally.name+' se interpone para cubrirte.';
-     nextEnemyQuality=Math.min(nextEnemyQuality,0.28);
-     nextDefenseBonus+=10;
-     nextDamageReduction=Math.max(nextDamageReduction,0.15);
+     const canReachEnemy=Math.hypot(ally.x-enemy.x,ally.y-enemy.y)<=1.5;
+     if(canReachEnemy){
+       const equipment=(ally.inventory??[]).find(i=>i.quantity>0&&/pistola|rifle|arma de fuego|cuchillo|navaja|machete|hoja|barra|tubo|llave inglesa|martillo|palo|herramienta pesada/i.test(i.name.toLowerCase()));
+       let allyStyle:CombatStyle='unarmed';
+       if(equipment){
+         const itemName=equipment.name.toLowerCase();
+         allyStyle=/pistola|rifle|arma de fuego/.test(itemName)?'firearm':/cuchillo|navaja|machete|hoja/.test(itemName)?'blade':'blunt';
+       }
+       const allyResult=actorCombatAction(state,ally.id,enemy.id,allyStyle,0.68);
+       message+=' '+ally.name+(allyResult.ok?' interviene por su cuenta: '+allyResult.message:' intenta ayudarte, pero no logra intervenir: '+allyResult.message);
+       recordSocialEvent(ally,{kind:'help',targetId:'player',tick:state.tick,severity:12,description:'Intervino por iniciativa propia durante el enfrentamiento con '+enemy.name+'.',interpretation:'protegió a una persona de confianza'});
+     }else{
+       message+=' '+ally.name+' se interpone para cubrirte.';
+       nextEnemyQuality=Math.min(nextEnemyQuality,0.28);
+       nextDefenseBonus+=10;
+       nextDamageReduction=Math.max(nextDamageReduction,0.15);
+       recordSocialEvent(ally,{kind:'help',targetId:'player',tick:state.tick,severity:10,description:'Se interpuso para cubrirte durante el enfrentamiento con '+enemy.name+'.',interpretation:'arriesgó su seguridad para protegerte'});
+     }
    }
-   message+=' '+enemyCombatAction(state,enemy.id,nextEnemyQuality,nextDefenseBonus,nextDamageReduction).message;
+   if(enemy.alive&&state.player.health>0){
+     message+=' '+enemyCombatAction(state,enemy.id,nextEnemyQuality,nextDefenseBonus,nextDamageReduction).message;
+   }
  }
  if(enemy.alive&&state.player.health>0)advanceWorld(state);
  paintCombat(message);render();
@@ -202,7 +211,110 @@ function presentWorldLog(entry:WorldState['log'][number]):string|null{
 }
 function walkTo(tile:{x:number;y:number}){if(state.paused)return;if(walkingTimer!==null)clearInterval(walkingTimer);const path=pathTo(state,tile.x,tile.y);let i=0;walkingTimer=window.setInterval(()=>{const next=path[i];if(!next||!walkStep(state,next.x,next.y)){if(walkingTimer!==null)clearInterval(walkingTimer);walkingTimer=null;render();return;}i++;render();},180);}
 function closeNpcContextMenu(){document.getElementById('npc-context-menu')?.remove();}
-function openNpcContextMenu(event:MouseEvent,actorId:string){closeNpcContextMenu();const actor=state.actors.find(a=>a.id===actorId&&a.alive);if(!actor)return;const menu=document.createElement('div');menu.id='npc-context-menu';menu.className='npc-context-menu';menu.setAttribute('role','menu');const heading=document.createElement('strong');heading.textContent=actor.name;menu.append(heading);const hit=document.createElement('button');hit.type='button';hit.textContent='Golpear';hit.setAttribute('role','menuitem');hit.addEventListener('click',()=>{closeNpcContextMenu();punchNpc(actor.id);});menu.append(hit);const cancel=document.createElement('button');cancel.type='button';cancel.textContent='Cancelar';cancel.addEventListener('click',closeNpcContextMenu);menu.append(cancel);document.body.append(menu);const width=menu.offsetWidth||170,height=menu.offsetHeight||100;menu.style.left=Math.max(8,Math.min(event.clientX,window.innerWidth-width-8))+'px';menu.style.top=Math.max(8,Math.min(event.clientY,window.innerHeight-height-8))+'px';const dismiss=(e:MouseEvent)=>{if(!menu.contains(e.target as Node)){closeNpcContextMenu();document.removeEventListener('pointerdown',dismiss,true);}};window.setTimeout(()=>document.addEventListener('pointerdown',dismiss,true),0);}
+function isPhysicalActor(actor:(typeof state.actors)[number]){
+ if(!actor.bodyType){
+   const hash=actor.id.split('').reduce((n,c)=>Math.imul(n^c.charCodeAt(0),16777619),state.seed>>>0)>>>0;
+   const chance=actor.faction==='Gruta'?65:actor.faction==='Sin afiliación'?18:4;
+   actor.bodyType=hash%100<chance?'physical':'biological';
+ }
+ if(actor.bodyType==='physical')actor.glyph='▣';
+ return actor.bodyType==='physical';
+}
+
+function openPhysicalHackMinigame(actorId:string){
+ const actor=state.actors.find(a=>a.id===actorId&&a.alive);
+ if(!actor||!isPhysicalActor(actor))return;
+ if(Math.hypot(actor.x-state.player.x,actor.y-state.player.y)>1.5){
+   state.log.push({tick:state.tick,text:'Necesitas acercarte a '+actor.name+' para conectar con su interfaz.',kind:'warning',actorId:actor.id});
+   render();return;
+ }
+ const wasPaused=state.paused;state.paused=true;let finished=false;
+ const overlay=document.createElement('div');overlay.id='physical-hack-screen';overlay.className='physical-hack-screen';overlay.setAttribute('role','dialog');overlay.setAttribute('aria-modal','true');overlay.setAttribute('aria-label','Minijuego de enlace físico');
+ overlay.innerHTML='<section class="physical-hack-panel"><div class="hack-kicker">ENLACE LOCAL · SOLO DIAGNÓSTICO</div><h2>RECONSTRUIR EL CIRCUITO</h2><p class="hack-description">Gira los conductos para conectar la entrada del lateral izquierdo con la salida inferior derecha. No hay cronómetro: las interfaces de verdad ya son bastante hostiles.</p><div class="hack-flow-labels"><span>ENTRADA ◀</span><span>SALIDA ▼</span></div><div class="hack-grid" id="hack-grid"></div><p id="hack-status" class="hack-status" role="status">Canal desconectado. Selecciona un conducto para girarlo 90°.</p><div class="hack-controls"><button type="button" id="hack-hint">PISTA</button><button type="button" id="hack-abort">CORTAR ENLACE</button></div><small class="hack-footnote">Una conexión correcta habilita lectura de diagnóstico. No toma el control de la IA.</small></section>';
+ document.body.append(overlay);
+ const grid=overlay.querySelector<HTMLElement>('#hack-grid')!;
+ const status=overlay.querySelector<HTMLElement>('#hack-status')!;
+
+ type PipeKind='straight'|'corner'|'tee'|'cap';
+ type PipeDir='N'|'E'|'S'|'W';
+ type PipeCell={r:number;c:number;kind:PipeKind;rotation:number;targetRotation:number;button:HTMLButtonElement};
+ const directions:PipeDir[]=['N','E','S','W'];
+ const basePorts:Record<PipeKind,PipeDir[]>={straight:['N','S'],corner:['N','E'],tee:['N','E','W'],cap:['N']};
+ const opposite:Record<PipeDir,PipeDir>={N:'S',E:'W',S:'N',W:'E'};
+ const delta:Record<PipeDir,[number,number]>={N:[-1,0],E:[0,1],S:[1,0],W:[0,-1]};
+ const targets:Record<string,{kind:PipeKind;rotation:number}>={
+  '1,0':{kind:'straight',rotation:1},
+  '1,1':{kind:'corner',rotation:3},
+  '0,1':{kind:'corner',rotation:1},
+  '0,2':{kind:'corner',rotation:2},
+  '1,2':{kind:'straight',rotation:0},
+  '2,2':{kind:'straight',rotation:0}
+ };
+ let rng=((state.seed>>>0)^Math.imul(state.tick+1,0x45d9f3b)^actor.id.split('').reduce((n,c)=>Math.imul(n^c.charCodeAt(0),16777619),2166136261))>>>0;
+ const random=()=>{rng^=rng<<13;rng^=rng>>>17;rng^=rng<<5;return (rng>>>0)/4294967296;};
+ const tiles:PipeCell[]=[];
+ const tilePorts=(tile:PipeCell):PipeDir[]=>basePorts[tile.kind].map(d=>directions[(directions.indexOf(d)+tile.rotation)%4]!);
+ const glyph=(tile:PipeCell)=>{
+   const ports=tilePorts(tile);
+   if(ports.length===4)return '┼';
+   if(ports.length===3){const missing=directions.find(d=>!ports.includes(d));return missing==='N'?'┬':missing==='E'?'┤':missing==='S'?'┴':'├';}
+   if(ports.length===2){
+     if(ports.includes('N')&&ports.includes('S'))return '│';
+     if(ports.includes('E')&&ports.includes('W'))return '─';
+     if(ports.includes('N')&&ports.includes('E'))return '└';
+     if(ports.includes('E')&&ports.includes('S'))return '┌';
+     if(ports.includes('S')&&ports.includes('W'))return '┐';
+     if(ports.includes('W')&&ports.includes('N'))return '┘';
+   }
+   const one=ports[0];return one==='N'?'╵':one==='E'?'╶':one==='S'?'╷':'╴';
+ };
+ const updateTile=(tile:PipeCell)=>{tile.button.textContent=glyph(tile);tile.button.setAttribute('aria-label','Fila '+(tile.r+1)+', columna '+(tile.c+1)+', conducto '+glyph(tile)+'. Pulsa para girar.');tile.button.title='Girar el conducto 90°';};
+ for(let r=0;r<3;r++)for(let c=0;c<3;c++){
+   const target=targets[r+','+c];
+   const kinds:PipeKind[]=['straight','corner','tee','cap'];
+   const kind=target?.kind??kinds[Math.floor(random()*kinds.length)]!;
+   const button=document.createElement('button');button.type='button';button.className='hack-tile';button.dataset.row=String(r);button.dataset.col=String(c);
+   const tile:PipeCell={r,c,kind,rotation:Math.floor(random()*4),targetRotation:target?.rotation??0,button};
+   tiles.push(tile);grid.append(button);updateTile(tile);
+ }
+ const findTile=(r:number,c:number)=>tiles.find(t=>t.r===r&&t.c===c)!;
+ const connected=()=>{
+   const start=findTile(1,0);
+   if(!tilePorts(start).includes('W'))return false;
+   const seen=new Set<string>(['1,0']);const queue:PipeCell[]=[start];
+   while(queue.length){
+     const current=queue.shift()!;
+     const ports=tilePorts(current);
+     if(current.r===2&&current.c===2&&ports.includes('S'))return true;
+     for(const d of ports){
+       const [dr,dc]=delta[d],nr=current.r+dr,nc=current.c+dc;
+       if(nr<0||nr>2||nc<0||nc>2)continue;
+       const neighbor=findTile(nr,nc);
+       if(!tilePorts(neighbor).includes(opposite[d]))continue;
+       const key=nr+','+nc;
+       if(!seen.has(key)){seen.add(key);queue.push(neighbor);}
+     }
+   }
+   return false;
+ };
+ const finish=(success:boolean)=>{
+   if(finished)return;finished=true;
+   if(success)resolvePhysicalHack(state,actor.id,true);
+   overlay.remove();state.paused=wasPaused;render();
+ };
+ const check=()=>{
+   if(!connected())return;
+   status.textContent='CANAL ESTABLE. Diagnóstico accesible; la autonomía de '+actor.name+' permanece intacta.';
+   tiles.forEach(t=>t.button.disabled=true);
+   window.setTimeout(()=>finish(true),650);
+ };
+ tiles.forEach(tile=>tile.button.addEventListener('click',()=>{tile.rotation=(tile.rotation+1)%4;updateTile(tile);status.textContent='Canal desconectado. Conductos girados: ajusta las conexiones que no coinciden.';check();}));
+ if(connected()){const start=findTile(1,0);start.rotation=(start.rotation+1)%4;updateTile(start);}
+ overlay.querySelector<HTMLButtonElement>('#hack-hint')!.onclick=()=>{status.textContent='Pista: entra por la fila central desde la izquierda, sube por la columna central, cruza la fila superior y baja por la columna derecha hasta la salida inferior.';};
+ overlay.querySelector<HTMLButtonElement>('#hack-abort')!.onclick=()=>finish(false);
+}
+
+function openNpcContextMenu(event:MouseEvent,actorId:string){closeNpcContextMenu();const actor=state.actors.find(a=>a.id===actorId&&a.alive);if(!actor)return;const menu=document.createElement('div');menu.id='npc-context-menu';menu.className='npc-context-menu';menu.setAttribute('role','menu');const heading=document.createElement('strong');heading.textContent=actor.name;menu.append(heading);if(isPhysicalActor(actor)){const hack=document.createElement('button');hack.type='button';const inReach=Math.hypot(actor.x-state.player.x,actor.y-state.player.y)<=1.5;hack.textContent=inReach?'Acceder a interfaz':'Acércate para acceder';hack.disabled=!inReach;hack.setAttribute('role','menuitem');hack.addEventListener('click',()=>{closeNpcContextMenu();openPhysicalHackMinigame(actor.id);});menu.append(hack);}const hit=document.createElement('button');hit.type='button';hit.textContent='Golpear';hit.setAttribute('role','menuitem');hit.addEventListener('click',()=>{closeNpcContextMenu();punchNpc(actor.id);});menu.append(hit);const cancel=document.createElement('button');cancel.type='button';cancel.textContent='Cancelar';cancel.addEventListener('click',closeNpcContextMenu);menu.append(cancel);document.body.append(menu);const width=menu.offsetWidth||170,height=menu.offsetHeight||100;menu.style.left=Math.max(8,Math.min(event.clientX,window.innerWidth-width-8))+'px';menu.style.top=Math.max(8,Math.min(event.clientY,window.innerHeight-height-8))+'px';const dismiss=(e:MouseEvent)=>{if(!menu.contains(e.target as Node)){closeNpcContextMenu();document.removeEventListener('pointerdown',dismiss,true);}};window.setTimeout(()=>document.addEventListener('pointerdown',dismiss,true),0);}
 function punchNpc(actorId:string){if(state.paused)return;const actor=state.actors.find(a=>a.id===actorId&&a.alive);if(!actor)return;const distance=Math.max(Math.abs(actor.x-state.player.x),Math.abs(actor.y-state.player.y));if(distance>1){state.log.push({tick:state.tick,text:'Estás demasiado lejos para golpear a '+actor.name+'. Acércate primero.',kind:'warning'});render();return;}const result=combatAction(state,actor.id,'unarmed',0.48);if(!result.ok){state.log.push({tick:state.tick,text:result.message,kind:'warning'});render();return;}recordSocialEvent(actor,{kind:'threat',targetId:'player',tick:state.tick,severity:42,public:true,description:'El jugador me golpeó sin provocación.',interpretation:'agresión física directa'});const traits=actor.social.traits,rel=actor.social.relationships.player;const retaliation=traits.reactivity*.28+traits.pride*.2+traits.vengefulness*.2+traits.grudge*.12+(actor.disposition==='hostile'?18:actor.disposition==='wary'?7:0)+actor.alert*.08+(rel?.hostility??0)*.18+(rel?.resentment??0)*.12-traits.selfControl*.22-(rel?.fear??0)*.2;let response='';if(!actor.alive){response=actor.name+' cae al suelo tras el golpe. No puede responder.';}else if(retaliation>48){response=actor.name+' decide devolverte el golpe.';state.log.push({tick:state.tick,text:actor.name+' te ataca después de que lo golpeaste.',kind:'danger',actorId:actor.id});state.selectedActorId=actor.id;activeCombatEnemyId=actor.id;combatWasPaused=!!state.paused;state.paused=true;}else if(traits.selfControl>65&&traits.vengefulness<45){response=actor.name+' se contiene, retrocede y te advierte que no vuelvas a tocarlo.';actor.disposition='hostile';}else if((rel?.fear??0)>45||actor.alert<20){response=actor.name+' retrocede para evitar que la situación empeore.';actor.disposition='wary';}else{response=actor.name+' no te devuelve el golpe, pero no va a olvidar lo que hiciste.';actor.disposition='hostile';}state.log.push({tick:state.tick,text:result.message+' '+response,kind:'warning',actorId:actor.id});if(activeCombatEnemyId){const modal=document.createElement('div');modal.id='combat-screen';modal.className='combat-screen';document.body.append(modal);paintCombat(response);}else advanceWorld(state);render();}
 canvas.addEventListener('contextmenu',e=>{e.preventDefault();if(state.paused)return;const tile=tileFromPointer(canvas,state,e.clientX,e.clientY);if(!tile)return;const actor=visibleActors(state).find(a=>a.x===tile.x&&a.y===tile.y);if(actor)openNpcContextMenu(e,actor.id);else closeNpcContextMenu();});
 canvas.addEventListener('click',e=>{if(state.paused)return;

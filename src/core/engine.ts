@@ -355,3 +355,30 @@ export function formatClock(s:WorldState):string{const elapsed=s.elapsedWorldMs?
 /** Deterministic, engine-validated combat entry point. */
 export function combatAction(s:WorldState,targetId:string,style:CombatStyle='unarmed',executionQuality=0.5,attackBonus=0){return resolveCombatAction(s,'player',targetId,style,executionQuality,attackBonus);}
 export function enemyCombatAction(s:WorldState,attackerId:string,executionQuality=0.5,defenseBonus=0,damageReduction=0){return resolveCombatAction(s,attackerId,'player','unarmed',executionQuality,0,defenseBonus,damageReduction);}
+export function actorCombatAction(s:WorldState,attackerId:string,targetId:string,style:CombatStyle='unarmed',executionQuality=0.5){return resolveCombatAction(s,attackerId,targetId,style,executionQuality);}
+
+export interface PhysicalHackResult{ok:boolean;tolerated?:boolean;message:string;}
+/** Engine-authoritative resolution for the physical-interface puzzle. The UI only reports whether its routing puzzle was solved. */
+export function resolvePhysicalHack(s:WorldState,actorId:string,solved:boolean):PhysicalHackResult{
+ const actor=s.actors.find(a=>a.id===actorId&&a.alive);
+ if(!solved)return {ok:false,message:'Enlace cancelado.'};
+ if(!actor||actor.bodyType!=='physical')return {ok:false,message:'No hay una interfaz física válida para ese objetivo.'};
+ if(Math.hypot(actor.x-s.player.x,actor.y-s.player.y)>1.5)return {ok:false,message:'La unidad está fuera del alcance del enlace.'};
+ const tolerated=actor.disposition==='helpful'&&(actor.social.relationships['player']?.trust??actor.trust??0)>=45;
+ const fact='Diagnóstico de '+actor.name+': unidad física; integridad estimada '+(actor.health??100)+'/100; reserva '+(actor.stamina??100)+'/100. Se obtuvo acceso de lectura, no de control.';
+ s.player.knownFacts??=[];
+ if(!s.player.knownFacts.includes(fact))s.player.knownFacts.push(fact);
+ let message:string;
+ if(tolerated){
+   recordSocialEvent(actor,{kind:'help',targetId:'player',tick:s.tick,severity:3,description:'Permitió al jugador consultar un diagnóstico limitado de su sistema físico.',interpretation:'aceptó una revisión no invasiva'});
+   message='ENLACE ABIERTO: '+actor.name+' toleró el diagnóstico de solo lectura. Su autonomía permanece intacta.';
+   s.log.push({tick:s.tick,text:message,kind:'event',actorId:actor.id});
+ }else{
+   actor.alert=Math.min(100,actor.alert+12);
+   recordSocialEvent(actor,{kind:'threat',targetId:'player',tick:s.tick,severity:12,description:'El jugador abrió una interfaz de diagnóstico sin autorización explícita.',interpretation:'intrusión no consentida en un sistema privado'});
+   message='ENLACE ABIERTO: obtuviste el diagnóstico de '+actor.name+', pero registró la intrusión. La confianza y la alerta pueden cambiar.';
+   s.log.push({tick:s.tick,text:message,kind:'warning',actorId:actor.id});
+ }
+ advanceWorld(s);
+ return {ok:true,tolerated,message};
+}

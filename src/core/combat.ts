@@ -1,5 +1,6 @@
 import type {Actor,Item,WorldState,SkillName} from './types.ts';
 import {awardPractice,skillProgress} from './progression.ts';
+import {recordObservedSocialEvent,recordSocialEvent} from './social.ts';
 
 export type CombatStyle='unarmed'|'improvised'|'blunt'|'blade'|'firearm'|'disarm'|'retreat';
 export interface CombatResult {ok:boolean;reason?:string;attackerId:string;targetId:string;style:CombatStyle;hit?:boolean;damage?:number;targetHealth?:number;attackerHealth?:number;noise?:number;message:string;}
@@ -58,6 +59,18 @@ if(style==='firearm'&&!weapon(attacker,style))return fail('No tenés un arma de 
  attacker.stamina=clamp((attacker.stamina??100)-(style==='firearm'?4:10),0,100);
  if(attackerId==='player')s.player.stamina=attacker.stamina;
  if(targetId==='player'){s.player.health=targetHealth;s.player.stamina=target.stamina??s.player.stamina;if(target.wounds)s.player.wounds=[...target.wounds];}
+ if(targetHealth===0&&targetId!=='player'){
+   const killerName=attackerId==='player'?'el jugador':(attacker.name??'un atacante');
+   const eventId='combat-death:'+s.seed+':'+s.tick+':'+targetId;
+   const witnesses=recordObservedSocialEvent(s,{eventId,sourceId:attackerId,targetId,kind:'threat',tick:s.tick,severity:32,description:killerName+' mató a '+(target.name??targetId)+' durante un enfrentamiento.',public:true});
+   for(const witnessId of witnesses){
+     const witness=s.actors.find(a=>a.id===witnessId);
+     if(!witness)continue;
+     witness.alert=Math.min(100,witness.alert+18);
+     recordSocialEvent(witness,{kind:'threat',targetId:attackerId,tick:s.tick,severity:16,description:'Presenció la muerte de '+(target.name??targetId)+' por parte de '+killerName+'.',interpretation:'la violencia puede volver a afectar al lugar'});
+   }
+ }
+
  if(chosen){chosen.wear=(chosen.wear??0)+(style==='firearm'?0.3:1);chosen.integrity=Math.max(0,(chosen.integrity??chosen.condition??100)-(style==='firearm'?0.05:0.4));chosen.condition=chosen.integrity;}
  const noise=style==='firearm'?10:style==='blade'?3:style==='unarmed'?1:2;
  if(attacker.progression)awardPractice(attacker.progression,{skill:skillName,base:hit?5:2,difficulty:1,quality:hit?clamp(damage/15,.25,1):.3,outcome:hit?'success':'failure',key:`combat:${style}`,context:`target:${targetId}`,tick:s.tick});
@@ -65,6 +78,11 @@ if(style==='firearm'&&!weapon(attacker,style))return fail('No tenés un arma de 
 const message=hit ? (attackerId==="player"?"Golpeás":(attacker.name??"El atacante"))+" a "+(targetId==="player"?"vos":(target.name??targetId))+": "+damage+" de daño. "+(targetHealth===0?"Queda incapacitado.":wound+".") : "El ataque contra "+(target.name??targetId)+" falla; el adversario evita el golpe.";
 if(attackerId==="player" && targetId!=="player"){const a=s.actors.find(x=>x.id===targetId);const r=a?.social.relationships.player;if(r){r.hostility=Math.min(100,r.hostility+(hit?Math.max(8,damage):4));r.fear=Math.min(100,r.fear+(hit?Math.max(2,damage*.35):1));}}
  addLog(s,message,hit?'danger':'action');
+ if(targetHealth===0&&targetId!=='player'){
+   const deathMessage=(attackerId==='player'?'El jugador':(attacker.name??'El atacante'))+' mató a '+(target.name??targetId)+' durante el enfrentamiento.';
+   s.log.push({tick:s.tick,text:deathMessage,kind:'event',actorId:targetId});
+   if(s.log.length>100)s.log.shift();
+ }
  return {ok:true,attackerId,targetId,style,hit,damage,targetHealth,attackerHealth:attacker.health??100,noise,message};
 }
 export function recoverCombatant(c:Combatant,minutes:number):void {if(!Number.isFinite(minutes)||minutes<=0)return;c.stamina=clamp((c.stamina??100)+minutes*.8,0,100);}

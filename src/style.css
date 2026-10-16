@@ -282,3 +282,14 @@ body { overflow: hidden !important; }
 .combat-actions button[data-maneuver] strong{font-size:11px;letter-spacing:.09em;color:#d8bb7d}
 .combat-actions button[data-maneuver] small{font-size:10px;line-height:1.45;color:#a9b4ae;letter-spacing:0}
 .combat-actions button[data-maneuver="back"]{border-color:#303b3e;color:#9ca6a1;min-height:44px}
+
+.physical-hack-screen{position:fixed;inset:0;z-index:10040;display:grid;place-items:center;padding:18px;background:#090d0eeb;color:#d7e0da;font-family:inherit}
+.physical-hack-panel{width:min(540px,100%);max-height:94vh;overflow:auto;padding:24px;background:#11191a;border:1px solid #68817b;box-shadow:0 20px 70px #000d}
+.hack-kicker{font-size:10px;letter-spacing:.16em;color:#91b0a3}.physical-hack-panel h2{margin:9px 0 10px;font-size:20px;letter-spacing:.08em}.hack-description{font-size:12px;line-height:1.55;color:#aebbb4}
+.hack-flow-labels{display:flex;justify-content:space-between;margin:16px 0 8px;color:#d8bb7d;font-size:10px;letter-spacing:.1em}
+.hack-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:7px;width:min(100%,300px);margin:0 auto 14px}
+.hack-tile{aspect-ratio:1;border:1px solid #405251;background:#1b2929;color:#cbe2d6;font-family:monospace;font-size:36px;cursor:pointer;transition:background .12s,border-color .12s,transform .12s}
+.hack-tile:hover,.hack-tile:focus-visible{background:#2c4642;border-color:#a6c7b5;outline:2px solid #8db4a4;outline-offset:1px}.hack-tile:disabled{cursor:default;color:#d8bb7d}
+.hack-status{min-height:44px;padding:10px 12px;background:#182324;border-left:3px solid #91b0a0;font-size:11px;line-height:1.5}
+.hack-controls{display:flex;gap:8px;margin-top:13px}.hack-controls button{flex:1;padding:11px 12px;border:1px solid #4b5a5d;background:#1c2628;color:#e1e8e2;font:inherit;font-size:10px;letter-spacing:.1em;cursor:pointer}.hack-controls button:hover{background:#2b3a3d;border-color:#91b0b0}.hack-footnote{display:block;margin-top:13px;color:#7f8c87;font-size:9px;line-height:1.5}
+@media(max-width:420px){.physical-hack-panel{padding:17px}.physical-hack-panel h2{font-size:17px}.hack-tile{font-size:30px}.hack-controls{flex-direction:column}}

@@ -328,6 +328,7 @@ canvas.addEventListener('click',e=>{if(state.paused)return;
 window.addEventListener('keydown',e=>{
  if(['INPUT','TEXTAREA'].includes((e.target as HTMLElement).tagName))return;
  if(state.paused)return;const k=e.key.toLowerCase();
+ if(k==='enter'&&state.selectedActorId){e.preventDefault();$<HTMLInputElement>('say-input').focus();return;}
  if(k==='f'&&state.selectedActorId){const result=combatAction(state,state.selectedActorId);if(!result.ok)state.log.push({tick:state.tick,text:result.message,kind:'warning'});render();}
  if(k==='e'){if(state.selectedActorId)$<HTMLInputElement>('say-input').focus();else inspect(state);render();}
  if(k===' '){e.preventDefault();waitTurn(state);render();}

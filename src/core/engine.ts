@@ -353,5 +353,5 @@ export function seedLabel(seed:number):string{return seed.toString(16).toUpperCa
 export function formatClock(s:WorldState):string{const elapsed=s.elapsedWorldMs??0;s.day=Math.floor(elapsed/86400000)+1;s.minute=Math.floor(elapsed/60000)%1440;const h=Math.floor(s.minute/60),mm=s.minute%60;const phase=h>=6&&h<18?"DÍA":"NOCHE";return "DÍA "+String(s.day).padStart(3,"0")+" · "+String(h).padStart(2,"0")+":"+String(mm).padStart(2,"0")+" · "+phase;}
 
 /** Deterministic, engine-validated combat entry point. */
-export function combatAction(s:WorldState,targetId:string,style:CombatStyle='unarmed',executionQuality=0.5){return resolveCombatAction(s,'player',targetId,style,executionQuality);}
-export function enemyCombatAction(s:WorldState,attackerId:string,executionQuality=0.5){return resolveCombatAction(s,attackerId,'player','unarmed',executionQuality);}
+export function combatAction(s:WorldState,targetId:string,style:CombatStyle='unarmed',executionQuality=0.5,attackBonus=0){return resolveCombatAction(s,'player',targetId,style,executionQuality,attackBonus);}
+export function enemyCombatAction(s:WorldState,attackerId:string,executionQuality=0.5,defenseBonus=0,damageReduction=0){return resolveCombatAction(s,attackerId,'player','unarmed',executionQuality,0,defenseBonus,damageReduction);}

@@ -12,7 +12,7 @@ function weapon(c:Combatant,style:CombatStyle):Item|undefined {const inventory=c
 function protection(c:Combatant):number{return (c.inventory??[]).filter(i=>i.equipped&&(/protecci|armadura|chaleco/i.test(i.name)||i.kind==='protective')).reduce((n,i)=>n+Math.round((i.integrity??i.condition??50)/25),0);}
 function roll(s:WorldState,attackerId:string,targetId:string):number {let x=(s.seed^Math.imul(s.tick+Math.floor((s.elapsedWorldMs??0)/5000)+1,0x45d9f3b)^attackerId.split('').reduce((n,c)=>Math.imul(n^c.charCodeAt(0),16777619),2166136261)^targetId.split('').reduce((n,c)=>Math.imul(n^c.charCodeAt(0),16777619),2166136261))>>>0;x^=x<<13;x^=x>>>17;x^=x<<5;return (x>>>0)/4294967296;}
 function addLog(s:WorldState,text:string,kind:'action'|'danger'|'warning'='action'){s.log.push({tick:s.tick,text,kind});if(s.log.length>100)s.log.shift();}
-export function resolveCombatAction(s:WorldState,attackerId:string,targetId:string,style:CombatStyle='unarmed',executionQuality=0.5):CombatResult {
+export function resolveCombatAction(s:WorldState,attackerId:string,targetId:string,style:CombatStyle='unarmed',executionQuality=0.5,attackBonus=0,defenseBonus=0,damageReduction=0):CombatResult {
  const attacker=getCombatant(s,attackerId),target=getCombatant(s,targetId);
  const fail=(reason:string):CombatResult=>({ok:false,reason,attackerId,targetId,style,message:reason});
  if(!attacker||!target||attackerId===targetId)return fail('No hay un adversario válido.');
@@ -20,21 +20,44 @@ export function resolveCombatAction(s:WorldState,attackerId:string,targetId:stri
  if((attacker.health??100)<=0)return fail('No podés combatir mientras estás incapacitado.');
  if(dist(attacker,target)>1.5)return fail('El objetivo está fuera del alcance del ataque.');
  if(style==='retreat')return {ok:true,attackerId,targetId,style,hit:false,damage:0,message:'Buscás una salida; la retirada depende de que exista una ruta libre.'};
- if(style==='firearm'&&!weapon(attacker,style))return fail('No tenés un arma de fuego disponible.');
+ if(style==='disarm'){
+  const held=(target.inventory??[]).find(i=>i.equipped&&/cuchillo|navaja|machete|hoja|barra|tubo|llave inglesa|martillo|palo|herramienta pesada|pistola|rifle|arma de fuego/i.test(i.name));
+  if(!held)return fail('No lleva un arma que puedas desarmar.');
+  const advantage=clamp(((attacker.stamina??100)-(target.stamina??100))*.18+(skill(attacker,'fitness')-skill(target,'fitness'))*3,-24,24);
+  const successChance=clamp(48+advantage,22,76);
+  const success=roll(s,attackerId,targetId)<successChance/100;
+  attacker.stamina=clamp((attacker.stamina??100)-8,0,100);
+  if(attackerId==='player')s.player.stamina=attacker.stamina;
+  s.elapsedWorldMs=(s.elapsedWorldMs??0)+5000;s.minute=(s.minute+0.0833)%60;
+  if(success){
+    held.equipped=false;
+    target.stamina=clamp((target.stamina??100)-6,0,100);
+    const message='Desarmas a '+(target.name??'tu adversario')+'. '+held.name+' deja de estar en su mano.';
+    addLog(s,message,'action');
+    return {ok:true,attackerId,targetId,style,hit:true,damage:0,targetHealth:target.health??100,attackerHealth:attacker.health??100,message};
+  }
+  const message='Intentas desarmar a '+(target.name??'tu adversario')+', pero se zafa. No consigues quitarle el arma.';
+  addLog(s,message,'warning');
+  return {ok:true,attackerId,targetId,style,hit:false,damage:0,targetHealth:target.health??100,attackerHealth:attacker.health??100,message};
+}
+if(style==='firearm'&&!weapon(attacker,style))return fail('No tenés un arma de fuego disponible.');
  if(style==='blade'&&!weapon(attacker,style))return fail('No tenés una hoja disponible.');
  if(['blunt','improvised'].includes(style)&&!weapon(attacker,style))return fail('No tenés un objeto adecuado para ese golpe.');
  const skillName:SkillName=style==='blade'?'blades':style==='firearm'?'firearms':style==='unarmed'?'fitness':'improvised-weapons';
  const level=skill(attacker,skillName),fitness=skill(attacker,'fitness');
  const chosen=weapon(attacker,style);const integrity=(chosen?.integrity??chosen?.condition??65)/100;const quality=(chosen?.quality??60)/100;
  const fatigue=clamp((attacker.stamina??100)/100,.25,1);const healthFactor=clamp((attacker.health??100)/100,.2,1);
- const attackScore=25+level*.55+fitness*.22+(chosen?10*integrity*quality:0)+clamp(executionQuality,0,1)*12+fatigue*8+healthFactor*5;
- const defenseScore=35+skill(target,'defense')*.45+skill(target,'fitness')*.2+protection(target)*5+roll(s,attackerId,targetId)*24;
+ const attackScore=25+level*.55+fitness*.22+(chosen?10*integrity*quality:0)+clamp(executionQuality,0,1)*12+fatigue*8+healthFactor*5+clamp(attackBonus,-5,18);
+ const defenseScore=35+skill(target,'defense')*.45+skill(target,'fitness')*.2+protection(target)*5+roll(s,attackerId,targetId)*24+clamp(defenseBonus,0,35);
  const hit=attackScore>=defenseScore;
  const base=style==='firearm'?26:style==='blade'?17:style==='blunt'?14:style==='improvised'?11:7;
- const damage=hit?Math.max(1,Math.round((base+level*.18+(chosen?quality*4:0))*(.7+roll(s,targetId,attackerId)*.6)-protection(target)*1.5)):0;
+ const rawDamage=Math.max(1,Math.round((base+level*.18+(chosen?quality*4:0))*(.7+roll(s,targetId,attackerId)*.6)-protection(target)*1.5));
+ const damage=hit?Math.max(1,Math.round(rawDamage*(1-clamp(damageReduction,0,.8)))):0;
  const targetHealth=Math.max(0,(target.health??100)-damage);target.health=targetHealth;
  const wound=damage>=18?'herida grave':damage>=9?'herida moderada':'contusión';if(hit){target.wounds??=[];if(!target.wounds.includes(wound))target.wounds.push(wound);target.stamina=clamp((target.stamina??100)-8,0,100);if(targetHealth===0)target.alive=false;}
  attacker.stamina=clamp((attacker.stamina??100)-(style==='firearm'?4:10),0,100);
+ if(attackerId==='player')s.player.stamina=attacker.stamina;
+ if(targetId==='player'){s.player.health=targetHealth;s.player.stamina=target.stamina??s.player.stamina;if(target.wounds)s.player.wounds=[...target.wounds];}
  if(chosen){chosen.wear=(chosen.wear??0)+(style==='firearm'?0.3:1);chosen.integrity=Math.max(0,(chosen.integrity??chosen.condition??100)-(style==='firearm'?0.05:0.4));chosen.condition=chosen.integrity;}
  const noise=style==='firearm'?10:style==='blade'?3:style==='unarmed'?1:2;
  if(attacker.progression)awardPractice(attacker.progression,{skill:skillName,base:hit?5:2,difficulty:1,quality:hit?clamp(damage/15,.25,1):.3,outcome:hit?'success':'failure',key:`combat:${style}`,context:`target:${targetId}`,tick:s.tick});

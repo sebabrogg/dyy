@@ -14,9 +14,22 @@ const objectiveTemplates:Record<NpcQuest['objectiveType'],Array<Omit<QuestObject
 };
 
 export function ensureQuestObjectives(q:NpcQuest):QuestObjective[]{
- if(q.objectives?.length)return q.objectives;
+ // Repair malformed legacy offers already present in a saved game, not just newly generated quests.
+ const legacyTerritory=/zona de recolecci[oó]n/i.test(q.title+' '+q.description+' '+q.objective)&&/evitar que le quiten|conservar.{0,24}zona|proteger.{0,24}zona/i.test(q.title+' '+q.description+' '+q.objective);
+ if(legacyTerritory&&q.status==='offered'&&q.objectiveType==='investigate_and_report'){
+  q.title='Averiguar quién amenaza la zona de recolección';
+  q.description='La zona aporta alimentos y materiales al refugio. En los últimos días han aparecido huellas cerca de los puntos de recolección y alguien ha movido las marcas del límite. El solicitante teme que estén preparando una ocupación, pero no sabe quién está detrás ni si buscan robar recursos o expulsar a los recolectores. Inspeccioná las marcas y el terreno para reunir pruebas concretas.';
+  q.objective='Inspeccionar las marcas del límite y buscar señales concretas de intrusión, como huellas, estacas movidas o materiales retirados.';
+  q.objectiveTopic='zona de recolección';
+  q.objectives=undefined;
+ }
+ if(q.objectives?.length){
+  if(/zona de recolecci[oó]n/i.test(q.title+' '+q.description+' '+q.objective)){const o=q.objectives.find(o=>o.kind==='observe_information');const r=q.objectives.find(o=>o.kind==='report_to_giver');if(o)o.description='Inspeccionar las marcas del límite de la zona de recolección y buscar señales que permitan averiguar quién intenta ocuparla: huellas, estacas movidas o materiales retirados.';if(r)r.description='Volver con el solicitante e informar qué señales encontraste y qué indican.';}
+  return q.objectives;
+ }
  const templates=objectiveTemplates[q.objectiveType]??[];
- q.objectives=templates.map(o=>({...o,...(o.kind==='observe_information'&&q.objectiveTopic?{topic:q.objectiveTopic}:{}),status:'pending' as const,...(['deliver_item','repair_item'].includes(q.objectiveType)?{targetItemId:q.requiredItemId??(q.objectiveType==='deliver_item'?'scrap':undefined)}:{}),...(q.targetX!==undefined&&o.kind==='clear_obstacle'?{targetX:q.targetX}:{}),...(q.targetY!==undefined&&o.kind==='clear_obstacle'?{targetY:q.targetY}:{})}));
+ q.objectives=templates.map(o=>({...o,...(o.kind==='observe_information'&&q.objectiveTopic?{topic:q.objectiveTopic,description:/zona de recolecci[oó]n/i.test(q.objectiveTopic)?'Inspeccionar la zona de recolección y registrar una señal verificable de quién intenta ocuparla.':/\b(?:terreno|zona|lugar|sector|entrada|pasillo|ruinas|edificio)\b/i.test(q.objectiveTopic)?'Examinar '+q.objectiveTopic+' y registrar un detalle verificable.':/\b(?:persona|alguien|guardia|mensajero|vecino)\b/i.test(q.objectiveTopic)?'Observar a '+q.objectiveTopic+' y registrar una conducta o dato comprobable.':'Investigar '+q.objectiveTopic+' y obtener un dato comprobable.'}:{}),status:'pending' as const,...(['deliver_item','repair_item'].includes(q.objectiveType)?{targetItemId:q.requiredItemId??(q.objectiveType==='deliver_item'?'scrap':undefined)}:{}),...(q.targetX!==undefined&&o.kind==='clear_obstacle'?{targetX:q.targetX}:{}),...(q.targetY!==undefined&&o.kind==='clear_obstacle'?{targetY:q.targetY}:{})}));
+ if(/zona de recolecci[oó]n/i.test(q.title+' '+q.description+' '+q.objective)){const o=q.objectives.find(o=>o.kind==='observe_information');const r=q.objectives.find(o=>o.kind==='report_to_giver');if(o)o.description='Inspeccionar las marcas del límite de la zona de recolección y buscar señales que permitan averiguar quién intenta ocuparla: huellas, estacas movidas o materiales retirados.';if(r)r.description='Volver con el solicitante e informar qué señales encontraste y qué indican.';}
  // Preserve evidence already recorded by older saves, but never infer success from a bare progress counter.
  if(q.evidence?.startsWith('actor:'))completeObjective(q,'observe',q.evidence,0);
  if(q.evidence?.startsWith('collected:'))completeObjective(q,'collect',q.evidence,0);
@@ -33,7 +46,7 @@ export function applyQuestEvent(s:WorldState,event:QuestEvent):string[]{
  for(const q of s.quests){if(q.status!=='accepted')continue;const objectives=ensureQuestObjectives(q);let changed=false;
   for(const o of objectives){if(o.status==='completed')continue;let valid=false;
    switch(o.kind){
-    case 'observe_information': {const words=(value:string):string[]=>value.toLocaleLowerCase('es').normalize('NFD').replace(/[\u0300-\u036f]/g,'').match(/[a-z0-9ñ]{4,}/g)??[];const topicWords=words(o.topic??'');const evidenceWords=words(event.topicText??event.evidence);const relevant=!topicWords.length||topicWords.some(word=>evidenceWords.includes(word));valid=event.actorId==='player'&&relevant&&((!o.topic&&event.kind==='actor_observed'&&!!event.targetId&&event.targetId!==q.giverId)||(event.kind==='evidence_found'&&!!event.topicText));break;}
+    case 'observe_information': {const words=(value:string):string[]=>value.toLocaleLowerCase('es').normalize('NFD').replace(/[\u0300-\u036f]/g,'').match(/[a-z0-9ñ]{4,}/g)??[];const topicWords=words(o.topic??'');const evidenceWords=words(event.topicText??event.evidence);const relevantEvidence=!topicWords.length||topicWords.some(word=>evidenceWords.includes(word));const observedActor=event.targetId?s.actors.find(actor=>actor.id===event.targetId):undefined;const observedActorWords=words(observedActor?.name??'');const personTopic=/\b(?:persona|alguien|guardia|mensajero|vecino|viajero|comerciante|medico|medica|soldado)\b/i.test(o.topic??'');const relevantActor=!topicWords.length||personTopic||topicWords.some(word=>observedActorWords.includes(word));valid=event.actorId==='player'&&((event.kind==='actor_observed'&&!!event.targetId&&event.targetId!==q.giverId&&relevantActor)||(event.kind==='evidence_found'&&!!event.topicText&&relevantEvidence));break;}
     case 'collect_resource': valid=event.kind==='resource_collected'&&event.actorId==='player'&&event.itemId===(o.targetItemId??'scrap')&&(event.quantity??0)>=(o.quantity??1);break;
     case 'deliver_item': valid=event.kind==='item_delivered'&&event.actorId==='player'&&event.targetId===q.giverId&&event.itemId===(o.targetItemId??q.requiredItemId??'scrap')&&(event.quantity??0)>=(o.quantity??1);break;
     case 'clear_obstacle': valid=event.kind==='obstacle_cleared'&&event.actorId==='player'&&(o.targetX===undefined||o.targetX===event.x)&&(o.targetY===undefined||o.targetY===event.y);break;

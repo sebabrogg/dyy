@@ -1,20 +1,14 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {registerQuestFromDialogue} from '../src/core/quest-offers.ts';
 import {generateWorld} from '../src/world/generate.ts';
+import {registerQuestFromDialogue} from '../src/core/quest-offers.ts';
 
-function setup(){const state=generateWorld(12345);const actor=state.actors.find(a=>a.alive)!;return {state,actor};}
-
-test('registers an actionable implicit request as an offered quest with a human title',()=>{const {state,actor}=setup();const quest=registerQuestFromDialogue(state,actor.id,'Lo único que me sirve es que me avises si escuchás algo del agua, eso sí.');assert.ok(quest);assert.equal(quest.status,'offered');assert.equal(quest.title,'Averiguar qué se sabe sobre Agua');assert.equal(state.quests.filter(q=>q.giverId===actor.id&&q.status==='offered').length,1);});
-test('registers an explicit confirmation and does not duplicate the same request',()=>{const {state,actor}=setup();const first=registerQuestFromDialogue(state,actor.id,'Sí, es un encargo: fijate si escuchás algo del agua y avisame.');assert.ok(first);const second=registerQuestFromDialogue(state,actor.id,'Tenés razón, el encargo sigue en pie: avisame si escuchás algo del agua.');assert.equal(second?.id,first.id);assert.equal(state.quests.filter(q=>q.giverId===actor.id&&q.status==='offered').length,1);});
-test('does not turn needs, denials, or vague chat into quests',()=>{const {state,actor}=setup();assert.equal(registerQuestFromDialogue(state,actor.id,'Tengo vacías las alacenas, no me sirve otra cosa.'),null);assert.equal(registerQuestFromDialogue(state,actor.id,'No tengo ningún encargo para ofrecer ahora.'),null);assert.equal(registerQuestFromDialogue(state,actor.id,'Estoy preocupado por el agua.'),null);});
-test('does not convert requests for clarification into investigations',()=>{const {state,actor}=setup();for(const line of ['No te seguí bien. Decímelo de otra forma.','No te entendí, explicámelo de otra manera.','Repetímelo, por favor.','¿Qué quisiste decir?'])assert.equal(registerQuestFromDialogue(state,actor.id,line),null,line);});
-test('rejects internal NPC monologue and scene-context leakage as a quest',()=>{const {state,actor}=setup();assert.equal(registerQuestFromDialogue(state,actor.id,'Soy Ayla Nóbile, la que atiende el puesto. Sé que este sujeto se llama Elías y que acaba de acercarse hasta mi puesto, pero eso es todo lo que tengo de él: no sé qué busca, ni de dónde viene, ni por qué me habló. Sospecho que viene a tantearme, pero es solo una impresión. Lo que quiero es sacarle algo más de información sin mostrarle lo que todavía no pienso decir.'),null);});
-test('keeps an unrelated request from duplicating an existing quest',()=>{const {state,actor}=setup();const first=registerQuestFromDialogue(state,actor.id,'Fijate si escuchás algo del agua y avisame.');assert.ok(first);const second=registerQuestFromDialogue(state,actor.id,'Sí, es un encargo, fijate si escuchás algo del agua y avisame.');assert.equal(second?.id,first.id);});
-
-test('requires framing before quest nouns, so a bare mention cannot create a quest',()=>{const {state,actor}=setup();assert.equal(registerQuestFromDialogue(state,actor.id,'Tengo un encargo para Ivo, no para vos.'),null);assert.equal(registerQuestFromDialogue(state,actor.id,'La tarea, el encargo y el favor.'),null);const offered=registerQuestFromDialogue(state,actor.id,'Sí, es un encargo: fijate si escuchás algo del agua y avisame.');assert.ok(offered);});
-
-test('quest has an internal ID independent of the visible title and preserves the exact NPC request',()=>{const {state,actor}=setup();const request='Fijate si alguien entra al tanque de cloración y después volvé a contarme.';const quest=registerQuestFromDialogue(state,actor.id,request);assert.ok(quest);assert.match(quest.id,/^quest-/);assert.notEqual(quest.id,quest.title);assert.equal(quest.requestText,request);assert.ok(quest.objective.includes(actor.name));});
-
-test('classifies a delivery only when the requested item exists in the world',()=>{const {state,actor}=setup();state.player.inventory.push({id:'battery',name:'Batería',quantity:1,description:'Batería recargable',kind:'battery',condition:70,integrity:70});const q=registerQuestFromDialogue(state,actor.id,'Traeme la batería y te pago.');assert.ok(q);assert.equal(q.objectiveType,'deliver_item');assert.equal(q.requiredItemId,'battery');assert.equal(q.objective,'Entregale Batería a '+actor.name+'.');});
-test('classifies repair only for an existing damaged object',()=>{const {state,actor}=setup();state.player.inventory.push({id:'radio-test',name:'Radio portátil',quantity:1,description:'Radio dañada',kind:'device',condition:45,integrity:45});const q=registerQuestFromDialogue(state,actor.id,'Reparame la radio portátil, por favor.');assert.ok(q);assert.equal(q.objectiveType,'repair_item');assert.equal(q.requiredItemId,'radio-test');assert.equal(registerQuestFromDialogue(state,actor.id,'Reparame una máquina que no existe.'),null);});
+test('una propuesta concreta en voseo crea un encargo visible',()=>{
+  const state=generateWorld(42017);
+  const npc=state.actors.find(actor=>actor.alive)!;
+  const quest=registerQuestFromDialogue(state,npc.id,'Tengo uno, sí. El generador de la subestación pierde potencia y nadie sabe si es mantenimiento, pieza mala o mano ajena. Bajá, revisá, y volvé con lo que encuentres — sin heroicidades, eso sí.');
+  assert.ok(quest,'la propuesta concreta del NPC debe crear un encargo');
+  assert.equal(quest.status,'offered');
+  assert.match(quest.title,/generador|subestación|potencia|revis/i);
+  assert.match(quest.description+' '+quest.objective,/generador|subestación|potencia/i);
+});

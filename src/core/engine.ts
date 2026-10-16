@@ -5,6 +5,7 @@ import {ageSocialMemories,classifyUtterance,recordSocialEvent,recordObservedSoci
 import {decideNpcBehavior,intentForSocialEvent,recentThreatCount} from './ai-matrix.ts';
 import {makeLifeQuest,questOfferFor} from './character.ts';
 import {classifyWorkIntent} from './quest-intent.ts';
+import {isValidQuestOffer} from './quest-offers.ts';
 import {applyQuestEvent,ensureQuestObjectives,objectiveReadiness} from './quest-objectives.ts';
 import {chooseAutonomousDirection} from './autonomy.ts';
 import {applyWear,canonicalItemId,hydrateItem,itemMass,playerLightRadius} from './items.ts';
@@ -17,7 +18,7 @@ export function tileAt(s:WorldState,x:number,y:number){return x<0||y<0||x>=s.wid
 export function canSee(s:WorldState,a:Actor):boolean{return a.alive&&distance(s.player,a)<=12;}
 export function canIdentifyActor(s:WorldState,a:Actor):boolean{return a.alive&&distance(s.player,a)<=playerLightRadius(s.player.inventory);}
 export function visibleActors(s:WorldState):Actor[]{return s.actors.filter(a=>canSee(s,a));}
-function addLog(s:WorldState,text:string,kind:LogEntry['kind']='world',actorId?:string){s.log.push({tick:s.tick,text,kind,...(actorId?{actorId}:{})});if(s.log.length>100)s.log.shift();}
+function addLog(s:WorldState,text:string,kind:LogEntry['kind']='world',actorId?:string,combatInitiated=false){s.log.push({tick:s.tick,text,kind,...(actorId?{actorId}:{}),...(combatInitiated?{combatInitiated:true}:{})});if(s.log.length>100)s.log.shift();}
 function occupied(s:WorldState,x:number,y:number,ignore?:string):boolean{return s.actors.some(a=>a.alive&&a.id!==ignore&&a.x===x&&a.y===y)||(s.player.x===x&&s.player.y===y);}
 function walkable(s:WorldState,x:number,y:number):boolean{const t=tileAt(s,x,y);return !!t&&WALKABLE.has(t.terrain)&&!occupied(s,x,y);}
 export function refreshVisibility(s:WorldState):void{const radius=playerLightRadius(s.player.inventory);for(const t of s.tiles)if(distance(s.player,t)<=radius)t.explored=true;}
@@ -69,7 +70,7 @@ function tickWorld(s:WorldState):void{
  for(const a of s.actors.filter(v=>v.alive)){
   ageSocialMemories(a,s.tick);
   const d=distance(s.player,a);
-  if(d<=5){a.lastSeenPlayerTick=s.tick;const rel=relationshipTo(a);if(rel.hostility>=75||rel.resentment>=82)a.disposition='hostile';else if(rel.hostility>=40&&a.disposition!=='hostile')a.disposition='wary';if(d<=2){if(a.disposition==='hostile')a.alert=Math.min(100,a.alert+8);else if(a.disposition==='wary')a.alert=Math.min(100,a.alert+2);if(a.alert>=32&&shouldAttack(a,'player',a.alert,0)){s.player.health=Math.max(0,s.player.health-2);addLog(s,a.name+' te ataca. No parece dispuesto a dejar pasar lo ocurrido.','danger');addLog(s,'El impacto te sacude; el dolor reclama tu atención.','feeling');}}}
+  if(d<=5){a.lastSeenPlayerTick=s.tick;const rel=relationshipTo(a);if(rel.hostility>=75||rel.resentment>=82)a.disposition='hostile';else if(rel.hostility>=40&&a.disposition!=='hostile')a.disposition='wary';if(d<=2){if(a.disposition==='hostile')a.alert=Math.min(100,a.alert+8);else if(a.disposition==='wary')a.alert=Math.min(100,a.alert+2);if(a.alert>=32&&shouldAttack(a,'player',a.alert,0)){s.player.health=Math.max(0,s.player.health-2);const hostility=rel.hostility+rel.resentment;const cues=hostility>=150?[ 'aprieta los dientes y se abalanza sobre vos.','cierra los puños y carga contra vos.','te dedica una mirada cargada de furia antes de lanzarse al ataque.','su expresión se endurece; se precipita hacia vos sin vacilar.','masculla algo entre dientes y descarga un golpe.','se acerca con los hombros tensos y rompe la distancia de un movimiento brusco.','pierde la paciencia y se lanza contra vos.','te mira con un desprecio helado y ataca sin aviso.','levanta los puños y arremete con violencia.','su mandíbula se tensa; el siguiente movimiento es un golpe.','da un paso brusco hacia vos y trata de derribarte.','deja escapar un gruñido y se abalanza con los puños levantados.','te observa con una hostilidad imposible de disimular y carga.','suelta una amenaza entre dientes y se lanza hacia vos.','su postura se vuelve agresiva; intenta alcanzarte de un golpe.','se precipita hacia vos, decidido a resolverlo por la fuerza.','aparta cualquier duda y lanza el primer golpe.','se acerca con una calma inquietante y ataca de repente.','señala hacia vos con rabia y arremete.','tensa los hombros y descarga un golpe sin darte tiempo.']:[ 'frunce el ceño y se acerca con evidente irritación.','aprieta los dientes, conteniendo la rabia.','su mandíbula se tensa y no aparta la mirada.','te observa como si esperara una excusa para estallar.','cierra las manos en puños y da un paso hacia vos.','masculla algo entre dientes; su paciencia parece agotada.','su expresión se endurece y adopta una postura amenazante.','te dedica una mirada cargada de resentimiento.','respira hondo, pero no consigue disimular su enojo.','se interpone en tu camino, con los hombros tensos.','parece estar perdiendo el control.','te señala con un gesto acusador y se aproxima.','sus manos se cierran lentamente en puños.','te mira con una hostilidad cada vez menos disimulada.','se queda rígido, apretando la mandíbula.','da un paso hacia vos, sin intención de retroceder.','parece haber llegado al límite de su paciencia.','te observa con desprecio y se coloca en posición de pelea.','su mirada se vuelve fría y amenazante.','tensa el cuello y los hombros, conteniéndose a duras penas.'];const cue=cues[Math.floor(rng.next()*cues.length)];addLog(s,a.name+' '+cue,'danger',a.id,true);addLog(s,'El impacto te sacude; el dolor reclama tu atención.','feeling');}}}
   else a.alert=Math.max(0,a.alert-1);
   // Movement follows current social context and personality, not a uniform idle roll.
   if(a.alert<65&&d>2){const direction=chooseAutonomousDirection(a,s.actors.filter(v=>v.id!==a.id&&v.alive),()=>rng.next());if(direction){const nx=a.x+direction.dx,ny=a.y+direction.dy;if(walkable(s,nx,ny)){a.x=nx;a.y=ny;}}}
@@ -182,7 +183,32 @@ export function talk(s:WorldState,text?:string,options:{suppressDialogue?:boolea
  if(text?.trim()&&!event)recordSocialEvent(a,{kind:'conversation',targetId:'player',tick:s.tick,severity:8,description:'El jugador me dijo: «'+text.trim().slice(0,240)+'»',interpretation:'interacción recordada'});const rememberedPlace=(s.locations??[]).filter(place=>place.knownByActorIds.includes(a.id)).sort((left,right)=>Math.hypot(left.x-a.x,left.y-a.y)-Math.hypot(right.x-a.x,right.y-a.y))[0];if(rememberedPlace&&Math.hypot(rememberedPlace.x-a.x,rememberedPlace.y-a.y)<=5){(a.social.placeMemories??=[]).push({placeId:rememberedPlace.id,tick:s.tick,salience:24,description:'Habló con el jugador cerca de '+rememberedPlace.name+'.'});if(a.social.placeMemories.length>80)a.social.placeMemories.splice(0,a.social.placeMemories.length-80);}
  const offered=s.quests.find(q=>q.giverId===a.id&&q.status==='offered');
  if(/\b(acepto|aceptar|lo acepto|acepto el encargo|me encargo|lo hare|lo hago|ese es mi encargo|entonces ese es mi encargo|perfecto entonces ese es mi encargo)\b/.test(clean)){
-  if(offered){const worldMinute=Math.floor((s.elapsedWorldMs??0)/60000);offered.status='accepted';offered.acceptedAtTick=s.tick;offered.acceptedAtWorldMinute=worldMinute;offered.offeredAtWorldMinute=offered.offeredAtWorldMinute??worldMinute;const urgency=(a.goal+' '+a.lifeMission.motivation+' '+a.lifeMission.description+' '+a.personality).toLocaleLowerCase('es');const factor=/urgente|inmediato|peligro|amenaza|huir|escasez/.test(urgency)?0.45:/paciente|a largo plazo|reconstruir|aprender/.test(urgency)?1.8:1;const socialFactor=Math.max(0.7,Math.min(1.4,1+(a.social.traits.reactivity-50)/180));const hours=Math.max(2,Math.round((24+offered.requirements.length*8)*factor*socialFactor));offered.deadlineWorldMinute=worldMinute+hours*60;offered.deadlineTick=Number.MAX_SAFE_INTEGER;addLog(s,'Aceptaste el encargo de '+a.name+': '+offered.title+'. Plazo: '+Math.floor((offered.deadlineWorldMinute-worldMinute)/1440)+' días de tiempo del mundo. Objetivo actual: '+offered.objective+'.','event');tickWorld(s);return;}
+  if(offered){if(!isValidQuestOffer(offered)){offered.status='declined';addLog(s,'El encargo de '+a.name+' no tenía un objetivo concreto y no se registró. Podés seguir hablando con él para aclarar qué necesita.','event',a.id);tickWorld(s);return;}const worldMinute=Math.floor((s.elapsedWorldMs??0)/60000);offered.status='accepted';offered.acceptedAtTick=s.tick;offered.acceptedAtWorldMinute=worldMinute;offered.offeredAtWorldMinute=offered.offeredAtWorldMinute??worldMinute;const urgency=(a.goal+' '+a.lifeMission.motivation+' '+a.lifeMission.description+' '+a.personality).toLocaleLowerCase('es');const factor=/urgente|inmediato|peligro|amenaza|huir|escasez/.test(urgency)?0.45:/paciente|a largo plazo|reconstruir|aprender/.test(urgency)?1.8:1;const socialFactor=Math.max(0.7,Math.min(1.4,1+(a.social.traits.reactivity-50)/180));const hours=Math.max(2,Math.round((24+offered.requirements.length*8)*factor*socialFactor));offered.deadlineWorldMinute=worldMinute+hours*60;offered.deadlineTick=Number.MAX_SAFE_INTEGER;addLog(s,'Aceptaste el encargo de '+a.name+': '+offered.title+'. Plazo: '+Math.floor((offered.deadlineWorldMinute-worldMinute)/1440)+' días de tiempo del mundo. Objetivo actual: '+offered.objective+'.','event');tickWorld(s);return;}
+  // La conversación puede haber ofrecido un trabajo sin que el motor haya registrado
+  // la propuesta. No confirmes el trato dejando al jugador sin encargo: materializa
+  // una misión verificable para este NPC y acéptala en el mismo paso.
+  if(a.alive&&a.lifeMission.status==='active'&&!s.quests.some(q=>q.giverId===a.id&&(q.status==='offered'||q.status==='accepted'))){
+   const recovered=makeLifeQuest(a,s.tick);
+   const recentDialogue=[...s.log].reverse().find(entry=>entry.kind==='dialogue'&&(entry.actorId===a.id||entry.text.startsWith(a.name+':')));
+   const said=recentDialogue?.text.toLocaleLowerCase('es')??'';
+   if(/generador/.test(said)&&/bombeo/.test(said)){
+    recovered.title='Reparar el generador de la estación de bombeo';
+    recovered.description='Diagnostica por qué el generador de la estación de bombeo pierde potencia y vuelve con la causa real.';
+    recovered.objective='Investiga el generador de la estación de bombeo y comunica la causa real de la pérdida de potencia.';
+    recovered.objectiveType='investigate_and_report';
+    recovered.objectiveTopic='generador de la estación de bombeo';
+    recovered.requirements=['Examinar el generador y sus conexiones','Determinar la causa de la pérdida de potencia','Volver con el NPC e informar la causa'];
+    recovered.progress=0;
+    recovered.evidence=null;
+   }
+   s.quests.push(recovered);
+   const worldMinute=Math.floor((s.elapsedWorldMs??0)/60000);
+   recovered.status='accepted';recovered.acceptedAtTick=s.tick;recovered.acceptedAtWorldMinute=worldMinute;recovered.offeredAtWorldMinute=worldMinute;
+   const hours=Math.max(2,Math.round(24+recovered.requirements.length*8));
+   recovered.deadlineWorldMinute=worldMinute+hours*60;recovered.deadlineTick=Number.MAX_SAFE_INTEGER;
+   addLog(s,'Aceptaste el encargo de '+a.name+': '+recovered.title+'. Plazo: '+Math.floor(hours/24)+' días de tiempo del mundo. Objetivo actual: '+recovered.objective+'.','event');
+   tickWorld(s);return;
+  }
   addLog(s,a.name+' no te ha ofrecido ningún encargo que puedas aceptar.','warning');return;
  }
  if(/\b(rechazo|no acepto|no me interesa|dejalo)\b/.test(clean)&&offered){offered.status='declined';addLog(s,'Rechazaste el encargo de '+a.name+'. Su objetivo personal continúa.','event');tickWorld(s);return;}
@@ -353,7 +379,7 @@ export function seedLabel(seed:number):string{return seed.toString(16).toUpperCa
 export function formatClock(s:WorldState):string{const elapsed=s.elapsedWorldMs??0;s.day=Math.floor(elapsed/86400000)+1;s.minute=Math.floor(elapsed/60000)%1440;const h=Math.floor(s.minute/60),mm=s.minute%60;const phase=h>=6&&h<18?"DÍA":"NOCHE";return "DÍA "+String(s.day).padStart(3,"0")+" · "+String(h).padStart(2,"0")+":"+String(mm).padStart(2,"0")+" · "+phase;}
 
 /** Deterministic, engine-validated combat entry point. */
-export function combatAction(s:WorldState,targetId:string,style:CombatStyle='unarmed',executionQuality=0.5,attackBonus=0){return resolveCombatAction(s,'player',targetId,style,executionQuality,attackBonus);}
+export function combatAction(s:WorldState,targetId:string,style:CombatStyle='unarmed',executionQuality=0.5,attackBonus=0,d20Roll?:number){return resolveCombatAction(s,'player',targetId,style,executionQuality,attackBonus,0,0,d20Roll);}
 export function enemyCombatAction(s:WorldState,attackerId:string,executionQuality=0.5,defenseBonus=0,damageReduction=0){return resolveCombatAction(s,attackerId,'player','unarmed',executionQuality,0,defenseBonus,damageReduction);}
 export function actorCombatAction(s:WorldState,attackerId:string,targetId:string,style:CombatStyle='unarmed',executionQuality=0.5){return resolveCombatAction(s,attackerId,targetId,style,executionQuality);}
 

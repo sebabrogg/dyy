@@ -9,11 +9,11 @@ const dist=(a:{x:number;y:number},b:{x:number;y:number})=>Math.hypot(a.x-b.x,a.y
 const clamp=(n:number,min:number,max:number)=>Math.max(min,Math.min(max,n));
 function getCombatant(s:WorldState,id:string):Combatant|undefined {if(id==='player')return {...s.player,id:'player',alive:s.player.health>0} as unknown as Combatant;return s.actors.find(a=>a.id===id) as Combatant|undefined;}
 function skill(c:Combatant,name:SkillName):number{return c.progression?skillProgress(c.progression,name).level:1;}
-function weapon(c:Combatant,style:CombatStyle):Item|undefined {const inventory=c.inventory??[];const isWeapon=(i:Item)=>{const n=i.name.toLowerCase();if(style==='firearm')return /pistola|rifle|arma de fuego/.test(n);if(style==='blade')return /cuchillo|navaja|machete|hoja/.test(n);if(style==='blunt'||style==='improvised')return /barra|tubo|llave inglesa|martillo|palo|herramienta pesada/.test(n);return false;};return inventory.find(i=>i.equipped&&isWeapon(i))??inventory.find(isWeapon);}
+function weapon(c:Combatant,style:CombatStyle):Item|undefined {const inventory=c.inventory??[];const isWeapon=(i:Item)=>{const n=i.name.toLowerCase();if(style==='firearm')return /pistola|rifle|arma de fuego/.test(n);if(style==='blade')return /cuchillo|navaja|machete|hoja|punzante|filo|destornillador|punz[oó]n/.test(n);if(style==='blunt'||style==='improvised')return /barra|tubo|llave inglesa|martillo|palo|herramienta pesada/.test(n);return false;};return inventory.find(i=>i.equipped&&isWeapon(i))??inventory.find(isWeapon);}
 function protection(c:Combatant):number{return (c.inventory??[]).filter(i=>i.equipped&&(/protecci|armadura|chaleco/i.test(i.name)||i.kind==='protective')).reduce((n,i)=>n+Math.round((i.integrity??i.condition??50)/25),0);}
 function roll(s:WorldState,attackerId:string,targetId:string):number {let x=(s.seed^Math.imul(s.tick+Math.floor((s.elapsedWorldMs??0)/5000)+1,0x45d9f3b)^attackerId.split('').reduce((n,c)=>Math.imul(n^c.charCodeAt(0),16777619),2166136261)^targetId.split('').reduce((n,c)=>Math.imul(n^c.charCodeAt(0),16777619),2166136261))>>>0;x^=x<<13;x^=x>>>17;x^=x<<5;return (x>>>0)/4294967296;}
 function addLog(s:WorldState,text:string,kind:'action'|'danger'|'warning'='action'){s.log.push({tick:s.tick,text,kind});if(s.log.length>100)s.log.shift();}
-export function resolveCombatAction(s:WorldState,attackerId:string,targetId:string,style:CombatStyle='unarmed',executionQuality=0.5,attackBonus=0,defenseBonus=0,damageReduction=0):CombatResult {
+export function resolveCombatAction(s:WorldState,attackerId:string,targetId:string,style:CombatStyle='unarmed',executionQuality=0.5,attackBonus=0,defenseBonus=0,damageReduction=0,d20Roll?:number):CombatResult {
  const attacker=getCombatant(s,attackerId),target=getCombatant(s,targetId);
  const fail=(reason:string):CombatResult=>({ok:false,reason,attackerId,targetId,style,message:reason});
  if(!attacker||!target||attackerId===targetId)return fail('No hay un adversario válido.');
@@ -50,10 +50,11 @@ if(style==='firearm'&&!weapon(attacker,style))return fail('No tenés un arma de 
  const fatigue=clamp((attacker.stamina??100)/100,.25,1);const healthFactor=clamp((attacker.health??100)/100,.2,1);
  const attackScore=25+level*.55+fitness*.22+(chosen?10*integrity*quality:0)+clamp(executionQuality,0,1)*12+fatigue*8+healthFactor*5+clamp(attackBonus,-5,18);
  const defenseScore=35+skill(target,'defense')*.45+skill(target,'fitness')*.2+protection(target)*5+roll(s,attackerId,targetId)*24+clamp(defenseBonus,0,35);
- const hit=attackScore>=defenseScore;
+ const hit=d20Roll===undefined?attackScore>=defenseScore:d20Roll>=6;
+ const critical=d20Roll!==undefined&&d20Roll>=15;
  const base=style==='firearm'?26:style==='blade'?17:style==='blunt'?14:style==='improvised'?11:7;
  const rawDamage=Math.max(1,Math.round((base+level*.18+(chosen?quality*4:0))*(.7+roll(s,targetId,attackerId)*.6)-protection(target)*1.5));
- const damage=hit?Math.max(1,Math.round(rawDamage*(1-clamp(damageReduction,0,.8)))):0;
+ const damage=hit?Math.max(1,Math.round(rawDamage*(critical?2:1)*(1-clamp(damageReduction,0,.8)))):0;
  const targetHealth=Math.max(0,(target.health??100)-damage);target.health=targetHealth;
  const wound=damage>=18?'herida grave':damage>=9?'herida moderada':'contusión';if(hit){target.wounds??=[];if(!target.wounds.includes(wound))target.wounds.push(wound);target.stamina=clamp((target.stamina??100)-8,0,100);if(targetHealth===0)target.alive=false;}
  attacker.stamina=clamp((attacker.stamina??100)-(style==='firearm'?4:10),0,100);
@@ -75,7 +76,7 @@ if(style==='firearm'&&!weapon(attacker,style))return fail('No tenés un arma de 
  const noise=style==='firearm'?10:style==='blade'?3:style==='unarmed'?1:2;
  if(attacker.progression)awardPractice(attacker.progression,{skill:skillName,base:hit?5:2,difficulty:1,quality:hit?clamp(damage/15,.25,1):.3,outcome:hit?'success':'failure',key:`combat:${style}`,context:`target:${targetId}`,tick:s.tick});
  s.elapsedWorldMs=(s.elapsedWorldMs??0)+5000;s.minute=(s.minute+0.0833)%60;
-const message=hit ? (attackerId==="player"?"Golpeás":(attacker.name??"El atacante"))+" a "+(targetId==="player"?"vos":(target.name??targetId))+": "+damage+" de daño. "+(targetHealth===0?"Queda incapacitado.":wound+".") : "El ataque contra "+(target.name??targetId)+" falla; el adversario evita el golpe.";
+const message=d20Roll!==undefined?'D20: '+d20Roll+' · '+(hit?(critical?'CRÍTICO · ':'')+(attackerId==="player"?"Golpeás":(attacker.name??"El atacante"))+" a "+(targetId==="player"?"vos":(target.name??targetId))+": "+damage+" de daño. "+(targetHealth===0?"Queda incapacitado.":wound+"."):"Fallaste: el ataque contra "+(target.name??targetId)+" no conecta.") : hit ? (attackerId==="player"?"Golpeás":(attacker.name??"El atacante"))+" a "+(targetId==="player"?"vos":(target.name??targetId))+": "+damage+" de daño. "+(targetHealth===0?"Queda incapacitado.":wound+".") : "El ataque contra "+(target.name??targetId)+" falla; el adversario evita el golpe.";
 if(attackerId==="player" && targetId!=="player"){const a=s.actors.find(x=>x.id===targetId);const r=a?.social.relationships.player;if(r){r.hostility=Math.min(100,r.hostility+(hit?Math.max(8,damage):4));r.fear=Math.min(100,r.fear+(hit?Math.max(2,damage*.35):1));}}
  addLog(s,message,hit?'danger':'action');
  if(targetHealth===0&&targetId!=='player'){

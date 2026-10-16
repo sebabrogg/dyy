@@ -1,13 +1,27 @@
 const byId = <T extends HTMLElement>(id: string) => document.getElementById(id) as T;
 
 export function initConversationFolders() {
+  // The folder controls are absent from the current interface. Do not let this legacy
+  // optional feature abort the main module before its initial render.
+  const requiredIds = ['dialogue-feed', 'conversation-folder-toggle', 'conversation-folders', 'conversation-folder-count', 'conversation-folder-chevron', 'conversation-target'];
+  if (requiredIds.some(id => !document.getElementById(id))) return;
   const feed = byId<HTMLElement>('dialogue-feed');
   const toggle = byId<HTMLButtonElement>('conversation-folder-toggle');
   const folderList = byId<HTMLElement>('conversation-folders');
   const count = byId<HTMLElement>('conversation-folder-count');
   const chevron = byId<HTMLElement>('conversation-folder-chevron');
   const target = byId<HTMLElement>('conversation-target');
-  const archiveView = byId<HTMLElement>('conversation-archive-view');
+  const popup = document.createElement('div');
+  popup.className = 'conversation-popup-backdrop';
+  popup.hidden = true;
+  popup.innerHTML = '<section class="conversation-popup" role="dialog" aria-modal="true" aria-labelledby="conversation-popup-title"><header class="conversation-popup-header"><div><p class="section-label">ARCHIVO PERSONAL</p><h2 id="conversation-popup-title">Conversación</h2></div><button type="button" class="conversation-popup-close" aria-label="Cerrar conversación">×</button></header><div class="conversation-popup-messages"></div></section>';
+  document.body.append(popup);
+  const popupTitle = popup.querySelector<HTMLElement>('#conversation-popup-title')!;
+  const popupMessages = popup.querySelector<HTMLElement>('.conversation-popup-messages')!;
+  const closePopup = () => { popup.hidden = true; };
+  popup.querySelector<HTMLButtonElement>('.conversation-popup-close')!.addEventListener('click', closePopup);
+  popup.addEventListener('click', event => { if (event.target === popup) closePopup(); });
+  document.addEventListener('keydown', event => { if (event.key === 'Escape' && !popup.hidden) closePopup(); });
   let activeName: string | null = null;
   let open = false;
   let latestCards: HTMLElement[] = [];
@@ -21,16 +35,10 @@ export function initConversationFolders() {
   };
 
   const renderActive = () => {
-    if (activeName && conversations.has(activeName)) {
-      feed.hidden = true;
-      archiveView.hidden = false;
-      archiveView.innerHTML = (conversations.get(activeName) ?? []).map(card => card.outerHTML).join('');
-      target.textContent = 'ARCHIVO · ' + activeName.toLocaleUpperCase('es');
-    } else {
-      activeName = null;
-      archiveView.hidden = true;
-      feed.hidden = false;
-      target.textContent = 'CANAL ABIERTO · PERSONAS CERCANAS';
+    target.textContent = activeName ? 'ARCHIVO · ' + activeName.toLocaleUpperCase('es') : 'CANAL ABIERTO · PERSONAS CERCANAS';
+    if (activeName && conversations.has(activeName) && !popup.hidden) {
+      popupTitle.textContent = activeName;
+      popupMessages.innerHTML = (conversations.get(activeName) ?? []).map(card => card.outerHTML).join('');
     }
     drawFolders();
   };
@@ -74,7 +82,10 @@ export function initConversationFolders() {
     if (!button) return;
     const name = button.dataset.conversationName;
     if (!name) return;
-    activeName = activeName === name ? null : name;
+    activeName = name;
+    popupTitle.textContent = name;
+    popupMessages.innerHTML = (conversations.get(name) ?? []).map(card => card.outerHTML).join('');
+    popup.hidden = false;
     renderActive();
   });
   new MutationObserver(refresh).observe(feed, {childList: true, subtree: true, characterData: true});

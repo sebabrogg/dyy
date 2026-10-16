@@ -2,6 +2,7 @@ import test from 'node:test';
 import assert from 'node:assert/strict';
 import {generateWorld} from '../src/world/generate.ts';
 import {canOfferLifeQuest,makeLifeQuest,questOfferFor} from '../src/core/character.ts';
+import {ensureQuestObjectives} from '../src/core/quest-objectives.ts';
 import {inspect,selectActor,talk} from '../src/core/engine.ts';
 import {buildDialogueContext} from '../src/ai/local-dialogue.ts';
 import {asksForIdentity,revealsIdentity} from '../src/core/identity.ts';
@@ -93,14 +94,22 @@ test('una misión personal puede generar el siguiente encargo tras completar el 
  assert.ok(next);
  assert.notEqual(next.id,'quest-old');
  assert.match(next.objective,/Investiga|Recupera|Entrégame|Despeja/);
- assert.match(next.description,/Paso actual/);
+ assert.match(next.description,/Primer paso/);
 });
 
-test('los pasos de una misión personal generan objetivos de investigación, recursos, entrega y despeje',()=>{
+test('el tipo de objetivo depende del problema real y no del número de paso',()=>{
  const s=generateWorld(907),npc=s.actors[0]!;
- const expected=new Map([[0,'investigate_and_report'],[1,'collect_scrap'],[2,'deliver_item'],[3,'clear_obstacle']]);
- for(const [progress,type] of expected){npc.lifeMission.progress=progress;const q=makeLifeQuest(npc,0);assert.equal(q.objectiveType,type);}
- npc.lifeMission.progress=2;assert.equal(makeLifeQuest(npc,0).requiredItemId,'scrap');
+ npc.lifeMission.title='Reparar el generador del refugio';
+ npc.lifeMission.description='El generador del refugio está averiado y no mantiene la corriente.';
+ npc.lifeMission.steps=['reunir información','conseguir lo que falta','resolver el obstáculo principal','decidir qué sacrificar para terminar'];
+ npc.lifeMission.progress=0;
+ const repair=makeLifeQuest(npc,0);
+ assert.equal(repair.objectiveType,'repair_item');
+ assert.match(repair.objective,/repar/i);
+ npc.lifeMission.title='Reunir chatarra para reforzar la entrada';
+ npc.lifeMission.description='Hace falta recoger chatarra para reforzar la entrada del refugio.';
+ npc.lifeMission.progress=0;
+ assert.equal(makeLifeQuest(npc,0).objectiveType,'collect_scrap');
 });
 
 test('el contexto de un NPC puede incluir su entorno observado sin convertirlo en conocimiento omnisciente',()=>{
@@ -126,3 +135,20 @@ test('preguntar la identidad no revela a un NPC hasta que la respuesta incluye s
 test('OpenCode es el proveedor permanente independientemente de la URL',()=>{assert.equal(resolveAiProvider(''), 'opencode');assert.equal(resolveAiProvider('?ai=opencode'),'opencode');assert.equal(resolveAiProvider('?ai=ollama'),'opencode');assert.equal(resolveAiProvider('?ai=unknown'),'opencode');});
 
 test('la ficha procedural incluye contradicciones, motivaciones y una voz propia que alimentan el diálogo',()=>{const a=generateWorld(401),b=generateWorld(402);const x=a.actors[0]!,y=b.actors[0]!;assert.ok(x.mind.motivations);assert.equal(Object.keys(x.mind.motivations!).length,8);assert.ok(x.mind.communication);assert.ok(x.mind.contradictions!.length>0);assert.ok(x.mind.defenseMechanisms!.length>0);assert.ok(x.mind.privateGoal);assert.notDeepEqual(x.mind,y.mind);const context=buildDialogueContext(x,'hola','');assert.match(context.personality,/Contradicciones internas:/);assert.match(context.personality,/Motivaciones prioritarias:/);});
+
+
+test('un encargo sobre una zona disputada propone investigar la amenaza, no observar algo genérico',()=>{
+ const s=generateWorld(912),npc=s.actors[0]!;
+ npc.lifeMission.title='Evitar que le quiten su zona de recolección';
+ npc.lifeMission.description='Quiere conservar el acceso a la zona de recolección que sostiene al refugio.';
+ npc.lifeMission.steps=['reunir información','conseguir lo que falta','resolver el obstáculo principal','decidir qué sacrificar para terminar'];
+ npc.lifeMission.needs=['información fiable','la cooperación de otra persona'];
+ const q=makeLifeQuest(npc,0);
+ assert.equal(q.objectiveType,'investigate_and_report');
+ assert.match(q.title,/Averiguar quién amenaza la zona de recolección/);
+ assert.equal(q.objectiveTopic,'zona de recolección');
+ const objectives=ensureQuestObjectives(q);
+ assert.match(objectives[0]!.description,/zona de recolección/);
+ assert.match(objectives[0]!.description,/quién intenta ocuparla/);
+ assert.match(objectives[1]!.description,/Comunicar|informar/);
+});

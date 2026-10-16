@@ -147,5 +147,14 @@ document.querySelectorAll<HTMLElement>('[data-sleep-cancel]').forEach(el=>el.add
 window.setInterval(()=>{if(!state.paused)advanceWorld(state);render();},30000);
 document.getElementById("fatigue-dismiss")?.addEventListener("click",()=>{document.getElementById("fatigue-popup")!.hidden=true;});
 window.setInterval(()=>{const now=Date.now();if(state.paused||!state.running){state.lastClockUpdate=now;return;}const last=state.lastClockUpdate??now;if(now-last>=30000){const elapsed=Math.floor((now-last)/30000);state.lastClockUpdate=last+elapsed*30000;for(let i=0;i<Math.min(elapsed,120);i++)advanceWorld(state);render();try{localStorage.setItem(SAVE_STORAGE_KEY,encodeSave(state));}catch{}}},1000);
+const dialogueFeedForScroll=document.getElementById('dialogue-feed');
+const dialogueJumpButton=document.getElementById('dialogue-jump-bottom');
+let rememberedDialogueScrollTop=0;
+let lastObservedNpcReply='';
+const latestNpcCardKey=()=>{const cards=dialogueFeedForScroll?.querySelectorAll('.dialogue-card.npc-line');const card=cards?.item((cards.length||1)-1);return card?card.textContent?.trim()??'':'';};
+const updateDialogueJumpButton=()=>{if(!dialogueFeedForScroll||!dialogueJumpButton)return;const distance=dialogueFeedForScroll.scrollHeight-dialogueFeedForScroll.scrollTop-dialogueFeedForScroll.clientHeight;dialogueJumpButton.hidden=distance<32;rememberedDialogueScrollTop=dialogueFeedForScroll.scrollTop;};
+dialogueFeedForScroll?.addEventListener('scroll',updateDialogueJumpButton,{passive:true});
+dialogueJumpButton?.addEventListener('click',()=>dialogueFeedForScroll?.scrollTo({top:dialogueFeedForScroll.scrollHeight,behavior:'smooth'}));
+if(dialogueFeedForScroll){lastObservedNpcReply=latestNpcCardKey();const dialogueObserver=new MutationObserver(()=>{const nextNpcReply=latestNpcCardKey();if(nextNpcReply&&nextNpcReply!==lastObservedNpcReply){lastObservedNpcReply=nextNpcReply;dialogueFeedForScroll.scrollTop=dialogueFeedForScroll.scrollHeight;}else{dialogueFeedForScroll.scrollTop=Math.min(rememberedDialogueScrollTop,dialogueFeedForScroll.scrollHeight);}updateDialogueJumpButton();});dialogueObserver.observe(dialogueFeedForScroll,{childList:true,subtree:true});}
 render();
 initRetroAudio();

@@ -252,3 +252,11 @@ body { overflow: hidden !important; }
   .conversation-dock{min-height:420px}
   .conversation-dock .dialogue-feed{max-height:300px;min-height:160px}
 }
+
+
+/* Indicador para volver al mensaje más reciente del chat. */
+.conversation-dock{position:relative}
+.dialogue-jump-bottom{position:absolute;right:22px;bottom:92px;z-index:4;padding:8px 11px;border:1px solid #6e9caa;background:#202a2c;color:#dce5df;box-shadow:0 3px 14px #0008;font-size:9px;letter-spacing:.04em}
+.dialogue-jump-bottom:hover{background:#2b3b3e;border-color:#9bc4ce}
+.dialogue-jump-bottom[hidden]{display:none}
+@media(max-width:560px){.dialogue-jump-bottom{right:16px;bottom:90px;padding:7px 9px}}

@@ -157,7 +157,8 @@ function renderNext(): void {
     }
   });
   document.addEventListener('keydown', onKeyDown, true);
-  actions.append(cancel, confirm);
+  if (options.kind === 'confirm' || options.kind === 'input') actions.append(cancel, confirm);
+  else actions.append(confirm);
   panel.append(actions);
   (input ?? confirm).focus();
 }

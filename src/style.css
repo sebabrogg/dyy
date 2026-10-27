@@ -619,3 +619,33 @@ body:has(#inventory-popup:not([hidden])):has(#character-equipment-modal:not([hid
 
 /* LINK: asignación validada de objetos a encargos */
 .subject-tabs{grid-template-columns:repeat(4,minmax(0,1fr))!important}.link-panel-heading{padding:10px 8px 12px;border-bottom:1px solid #303638;margin-bottom:10px}.link-panel-heading strong{display:block;margin-top:7px;color:#82fb9c;font:600 12px ui-monospace,monospace;letter-spacing:.1em}.link-panel-heading p{font-size:10px;line-height:1.6;color:#8b9890;margin:9px 0 0}.quest-link-content{display:grid;gap:9px;max-height:60vh;overflow-y:auto}.quest-link-card{padding:10px;border:1px solid #304034;background:#141b16;display:grid;gap:8px}.quest-link-card-title{display:grid;gap:5px}.quest-link-card-title strong{font:600 11px/1.5 ui-monospace,monospace;color:#dce6dd}.quest-link-card-title small{font:9px ui-monospace,monospace;color:#82fb9c;overflow-wrap:anywhere}.quest-link-card>p{margin:0;color:#87948b;font-size:10px;line-height:1.5}.quest-link-item{display:grid;grid-template-columns:minmax(0,1fr) auto;gap:5px;text-align:left;border:1px solid #3b5140;background:#19251c;padding:9px}.quest-link-item span{font-size:10px;overflow-wrap:anywhere}.quest-link-item b{font:9px ui-monospace,monospace;color:#82fb9c}.quest-link-item small{grid-column:1/-1;color:#9cae9f;font:9px ui-monospace,monospace}.quest-link-item:disabled{opacity:.45;cursor:not-allowed}.quest-link-status{font:9px ui-monospace,monospace;color:#82fb9c;padding:7px;border:1px solid #385543;background:#14231a}
+
+
+/* GameDialog: sistema central de ventanas y avisos */
+.game-dialog-backdrop{position:fixed;inset:0;z-index:1000000;display:grid;place-items:center;padding:16px;background:rgba(3,6,5,.78);backdrop-filter:blur(3px);animation:game-dialog-fade-in .12s ease-out}
+.game-dialog-panel{width:min(100%,440px);max-height:min(84dvh,620px);overflow:auto;padding:18px;border:1px solid #3d5143;background:#101513;color:#dce6dd;box-shadow:0 18px 60px #000b,0 0 0 1px #82fb9c12;font-family:ui-monospace,SFMono-Regular,monospace;animation:game-dialog-rise-in .14s ease-out}
+.game-dialog-header{border-bottom:1px solid #2c3830;padding-bottom:11px;margin-bottom:13px}
+.game-dialog-eyebrow{display:block;color:#82fb9c;font-size:9px;letter-spacing:.14em;margin-bottom:8px}
+.game-dialog-header h2{font-size:14px;line-height:1.4;letter-spacing:.05em;margin:0;color:#e7eee8}
+.game-dialog-message{font-size:12px;line-height:1.7;color:#b2beb5;white-space:pre-wrap;overflow-wrap:anywhere;margin:0 0 15px}
+.game-dialog-input{box-sizing:border-box;width:100%;min-height:38px;border:1px solid #405448;background:#090d0b;color:#e4f3e7;padding:9px 10px;font:12px ui-monospace,monospace;outline:none}
+.game-dialog-input:focus{border-color:#82fb9c;box-shadow:0 0 0 2px #82fb9c2a}
+.game-dialog-input[aria-invalid=true]{border-color:#d77e70}
+.game-dialog-validation{min-height:0;margin:7px 0 0;color:#f0a194;font-size:10px;line-height:1.5}
+.game-dialog-actions{display:flex;justify-content:flex-end;flex-wrap:wrap;gap:8px;margin-top:17px}
+.game-dialog-button{min-height:35px;padding:8px 13px;border:1px solid #39463d;font:600 10px ui-monospace,monospace;letter-spacing:.07em;cursor:pointer}
+.game-dialog-button.primary{border-color:#82fb9c;background:#82fb9c;color:#0a120c}
+.game-dialog-button.secondary{background:#171d19;color:#b9c6bc}
+.game-dialog-button:hover{filter:brightness(1.12)}
+.game-dialog-button:focus-visible,.game-toast-close:focus-visible{outline:2px solid #82fb9c;outline-offset:3px}
+.game-toast-stack{position:fixed;z-index:999990;right:14px;bottom:14px;display:grid;gap:8px;width:min(360px,calc(100vw - 28px));pointer-events:none}
+.game-toast{position:relative;padding:11px 38px 11px 12px;border:1px solid #3c5141;background:#101713;color:#c7d4ca;box-shadow:0 8px 28px #0009;pointer-events:auto;animation:game-dialog-rise-in .14s ease-out}
+.game-toast strong{display:block;color:#82fb9c;font:600 9px ui-monospace,monospace;letter-spacing:.12em;margin-bottom:5px}
+.game-toast p{margin:0;font:11px/1.55 ui-monospace,monospace;overflow-wrap:anywhere}
+.game-toast.is-error{border-color:#a9584d;background:#1b1211}
+.game-toast.is-error strong{color:#ff9f8e}
+.game-toast-close{position:absolute;right:8px;top:7px;border:0;background:transparent;color:#b5c1b8;font-size:20px;cursor:pointer}
+@keyframes game-dialog-fade-in{from{opacity:0}to{opacity:1}}
+@keyframes game-dialog-rise-in{from{opacity:0;transform:translateY(5px)}to{opacity:1;transform:translateY(0)}}
+@media(max-width:480px){.game-dialog-backdrop{padding:10px}.game-dialog-panel{padding:14px;max-height:88dvh}.game-dialog-actions{display:grid;grid-template-columns:1fr 1fr}.game-dialog-button{width:100%}.game-toast-stack{right:8px;bottom:8px;width:calc(100vw - 16px)}}
+@media(prefers-reduced-motion:reduce){.game-dialog-backdrop,.game-dialog-panel,.game-toast{animation:none}}

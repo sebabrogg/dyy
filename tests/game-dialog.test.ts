@@ -26,10 +26,16 @@ test('GameDialog expone los cinco tipos previstos y mantiene cancelación explí
 
 test('el código de la aplicación no invoca alert, confirm ni prompt nativos',()=>{
  const files=[...sourceFiles('src'),'index.html'];
- const nativeCall=/\b(?:window\s*\.\s*)?(?:alert|confirm|prompt)\s*\(/;
+ const nativeCall=/\\bwindow\\s*\\.\\s*(?:alert|confirm|prompt)\\s*\\(/;
+ const bareNativeCall=/(?<![.\\w$])(?:alert|confirm|prompt)\\s*\\(/;
  const matches=files.flatMap(path=>{
   const source=read(path);
-  return source.split('\n').flatMap((line,index)=>nativeCall.test(line)?[`${relative(root,path)}:${index+1}: ${line.trim()}`]:[]);
+  return source.split('\\n').flatMap((line,index)=>{
+   const isGameDialogMethod=path==='src/ui/game-dialog.ts'&&/^\\s*confirm\\s*\\(/.test(line);
+   const isGameDialogCall=/GameDialog\\.(?:alert|confirm|prompt)\\s*\\(/.test(line);
+   const isNative=nativeCall.test(line)||(bareNativeCall.test(line)&&!isGameDialogMethod&&!isGameDialogCall);
+   return isNative?[`${relative(root,path)}:${index+1}: ${line.trim()}`]:[];
+  });
  });
  assert.deepEqual(matches,[]);
 });

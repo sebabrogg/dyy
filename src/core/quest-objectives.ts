@@ -3,7 +3,7 @@ import type {NpcQuest,WorldState} from './types.ts';
 export type QuestObjectiveKind='observe_information'|'report_to_giver'|'collect_resource'|'deliver_item'|'clear_obstacle'|'repair_item';
 export type QuestEventKind='actor_observed'|'resource_collected'|'item_delivered'|'obstacle_cleared'|'item_repaired'|'evidence_found'|'report_given';
 export interface QuestObjective {id:string;kind:QuestObjectiveKind;description:string;required:boolean;status:'pending'|'completed';targetActorId?:string;targetItemId?:string;topic?:string;targetX?:number;targetY?:number;quantity?:number;completedByEventId?:string;completedAtWorldMinute?:number;}
-export interface QuestEvent {id:string;kind:QuestEventKind;actorId:'player'|string;targetId?:string;itemId?:string;quantity?:number;x?:number;y?:number;integrity?:number;functional?:boolean;topicText?:string;worldMinute:number;evidence:string;}
+export interface QuestEvent {id:string;questId?:string;kind:QuestEventKind;actorId:'player'|string;targetId?:string;itemId?:string;quantity?:number;x?:number;y?:number;integrity?:number;functional?:boolean;topicText?:string;worldMinute:number;evidence:string;}
 
 const objectiveTemplates:Record<NpcQuest['objectiveType'],Array<Omit<QuestObjective,'status'|'completedByEventId'|'completedAtWorldMinute'>>>= {
  investigate_and_report:[{id:'observe',kind:'observe_information',description:'Registrar una observación relevante y verificable.',required:true,targetActorId:undefined,topic:undefined},{id:'report',kind:'report_to_giver',description:'Comunicar al solicitante lo que se averiguó.',required:true}],
@@ -43,7 +43,7 @@ function completeObjective(q:NpcQuest,id:string,evidence:string,worldMinute:numb
 }
 export function applyQuestEvent(s:WorldState,event:QuestEvent):string[]{
  const completed:string[]=[];const worldMinute=event.worldMinute;
- for(const q of s.quests){if(q.status!=='accepted')continue;const objectives=ensureQuestObjectives(q);let changed=false;
+ for(const q of s.quests){if(q.status!=='accepted'||(event.questId&&q.id!==event.questId))continue;const objectives=ensureQuestObjectives(q);let changed=false;
   for(const o of objectives){if(o.status==='completed')continue;let valid=false;
    switch(o.kind){
     case 'observe_information': {const words=(value:string):string[]=>value.toLocaleLowerCase('es').normalize('NFD').replace(/[\u0300-\u036f]/g,'').match(/[a-z0-9ñ]{4,}/g)??[];const topicWords=words(o.topic??'');const evidenceWords=words(event.topicText??event.evidence);const relevantEvidence=!topicWords.length||topicWords.some(word=>evidenceWords.includes(word));const observedActor=event.targetId?s.actors.find(actor=>actor.id===event.targetId):undefined;const observedActorWords=words(observedActor?.name??'');const personTopic=/\b(?:persona|alguien|guardia|mensajero|vecino|viajero|comerciante|medico|medica|soldado)\b/i.test(o.topic??'');const relevantActor=!topicWords.length||personTopic||topicWords.some(word=>observedActorWords.includes(word));valid=event.actorId==='player'&&((event.kind==='actor_observed'&&!!event.targetId&&event.targetId!==q.giverId&&relevantActor)||(event.kind==='evidence_found'&&!!event.topicText&&relevantEvidence));break;}

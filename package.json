@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite --host 0.0.0.0",
     "ai:bridge": "node scripts/dysto-ollama-bridge.mjs",
-    "build": "tsc -b && vite build",
+    "build": "npm test && tsc -b && vite build",
     "test": "node --experimental-strip-types --test tests/*.test.ts",
     "ai:opencode": "node scripts/dysto-opencode-bridge.mjs"
   },

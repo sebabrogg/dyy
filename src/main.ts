@@ -541,16 +541,13 @@ render();
 // opening a popup must not be the first action that refreshes character/progression.
 requestAnimationFrame(()=>render());
 
-function showDeleteQuestConfirmation(id:string){
+async function showDeleteQuestConfirmation(id:string){
  const quest=state.quests.find(q=>q.id===id);if(!quest)return;
- let modal=document.getElementById('delete-quest-confirm') as HTMLDivElement|null;
- if(!modal){
-  modal=document.createElement('div');modal.id='delete-quest-confirm';modal.className='delete-quest-confirm-backdrop';modal.hidden=true;
-  modal.innerHTML='<section class="delete-quest-confirm-panel" role="alertdialog" aria-modal="true"><p class="section-label">CONFIRMACIÓN REQUERIDA</p><h2>¿Seguro quiere borrar encargo?</h2><p class="delete-quest-name"></p><div class="delete-quest-actions"><button type="button" data-cancel-delete>Cancelar</button><button type="button" data-confirm-delete>Eliminar encargo</button></div></section>';
-  document.body.append(modal);
-  modal.addEventListener('click',event=>{const target=event.target as HTMLElement;if(target===modal||target.closest('[data-cancel-delete]')){modal!.hidden=true;return;}if(target.closest('[data-confirm-delete]')){const questId=modal!.dataset.questId;state.quests=state.quests.filter(q=>q.id!==questId);try{localStorage.setItem(SAVE_STORAGE_KEY,encodeSave(state));}catch(error){console.error('No se pudo guardar el diario:',error);}modal!.hidden=true;render();}});
-  document.addEventListener('keydown',event=>{if(event.key==='Escape'&&!modal!.hidden)modal!.hidden=true;});
- }
- modal.dataset.questId=id;modal.querySelector<HTMLElement>('.delete-quest-name')!.textContent=quest.title;modal.hidden=false;
+ const confirmed=await GameDialog.confirm('Vas a borrar el encargo «'+quest.title+'». Esta acción no se puede deshacer.','BORRAR ENCARGO','delete-quest:'+id);
+ if(!confirmed)return;
+ const current=state.quests.find(q=>q.id===id);if(!current)return;
+ state.quests=state.quests.filter(q=>q.id!==id);
+ try{localStorage.setItem(SAVE_STORAGE_KEY,encodeSave(state));}catch(error){console.error('No se pudo guardar el diario:',error);void GameDialog.error('El encargo se quitó de la sesión, pero no se pudo guardar el cambio. Revisá el almacenamiento del navegador.','ERROR AL GUARDAR','delete-quest-save:'+id);}
+ render();
 }
-window.addEventListener('click',event=>{const rawTarget=event.target;const target=rawTarget instanceof Element?rawTarget:null;const button=target?.closest<HTMLButtonElement>('#quest-list [data-delete-quest]');if(!button)return;event.preventDefault();event.stopPropagation();showDeleteQuestConfirmation(button.getAttribute('data-delete-quest')||'');},true);
+window.addEventListener('click',event=>{const rawTarget=event.target;const target=rawTarget instanceof Element?rawTarget:null;const button=target?.closest<HTMLButtonElement>('#quest-list [data-delete-quest]');if(!button)return;event.preventDefault();event.stopPropagation();void showDeleteQuestConfirmation(button.getAttribute('data-delete-quest')||'');},true);
